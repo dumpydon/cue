@@ -20,6 +20,11 @@ native/systemaudio
 cue-data.json
 *.env
 .env*
+*.p12
+*.pfx
+*.keychain
+*.keychain-db
+*.private.pem
 
 # Test artefacts
 test-stt-connection.js

@@ -88,6 +88,17 @@ test('mac config ships the zip target with entitlements files that exist on disk
   assert.match(entitlementsXml, /com\.apple\.security\.device\.audio-input/);
 });
 
+test('an explicit local development identity is stable signing but never public notarization', () => {
+  const original = { ...process.env };
+  try {
+    delete process.env.MAC_SIGN; process.env.CUE_LOCAL_SIGN_IDENTITY = 'Cue Local Development';
+    process.env.APPLE_ID = 'fixture@example.com'; process.env.APPLE_APP_SPECIFIC_PASSWORD = 'fixture'; process.env.APPLE_TEAM_ID = 'FIXTURE';
+    delete require.cache[require.resolve('../electron-builder.cjs')];
+    const config = require('../electron-builder.cjs');
+    assert.equal(config.mac.identity, 'Cue Local Development'); assert.equal(config.mac.hardenedRuntime, true); assert.equal(config.mac.notarize, false);
+  } finally { process.env = original; delete require.cache[require.resolve('../electron-builder.cjs')]; }
+});
+
 // ---- publik API app token (packaged-build default) --------------------------
 
 test('the committed src/publik-build.json carries an EMPTY app token and the production base URL', () => {

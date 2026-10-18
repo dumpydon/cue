@@ -57,6 +57,8 @@ contextBridge.exposeInMainWorld('cue', {
   permissionsCheck: () => ipcRenderer.invoke('permissions:check'),
   permissionsShow: () => ipcRenderer.send('permissions:show'),
   permissionsRequest: () => ipcRenderer.invoke('permissions:request'),
+  permissionsDetails: () => ipcRenderer.invoke('permissions:details'),
+  permissionsRepairScreen: () => ipcRenderer.invoke('permissions:repair-screen'),
   permissionsContinue: () => ipcRenderer.send('permissions:continue'),
   restart: () => ipcRenderer.send('app:restart'),
   log: (msg) => ipcRenderer.send('log', msg),

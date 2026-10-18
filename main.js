@@ -3,7 +3,9 @@ const path = require('path');
 const os = require('os');
 const store = require('./src/store');
 const windowGeometry = require('./src/window-geometry');
-const { readPermissionStatus, requestCapturePermissions } = require('./src/permissions');
+const { readPermissionStatus, requestCapturePermissions, createScreenPermissionRepair, SCREEN_REPAIR_SWITCH, relaunchArgs } = require('./src/permissions');
+const { readSigningInfo } = require('./src/macos-signing');
+const { execFile } = require('node:child_process');
 const { protectionCapability, createProtectionController } = require('./src/content-protection');
 const { createTrayController } = require('./src/tray');
 const { installWindowZoom } = require('./src/window-zoom');
@@ -75,6 +77,9 @@ const shortcutState = { assist: false, say: false, leetcode: false, quit: false 
 const isMac = process.platform === 'darwin';
 const isWindows = process.platform === 'win32';
 const isLinux = process.platform === 'linux';
+const ownsInstanceLock = app.requestSingleInstanceLock();
+if (!ownsInstanceLock) app.quit();
+app.on('second-instance', () => showMainWindow());
 
 // -------- Windows version helpers --------
 // WDA_EXCLUDEFROMCAPTURE (setContentProtection) requires Windows 10 build 19041+.
@@ -427,6 +432,7 @@ function createWindow() {
   win.on('move', queueBoundsSave);
   win.on('resize', queueBoundsSave);
   win.on('blur', () => finishWindowInteraction());
+  win.on('focus', () => publishPermissionStatus());
   win.on('show', () => trayController?.sync());
   win.on('hide', () => trayController?.sync());
   win.on('close', event => {
@@ -1427,12 +1433,19 @@ ipcMain.handle('applink:revoke', (_e, callerId) => {
 });
 
 // -------- permissions IPC --------
-ipcMain.handle('permissions:check', () => {
-  const status = getPermissionStatus();
-  send('permissions:changed', status);
-  return status;
+ipcMain.handle('permissions:check', () => publishPermissionStatus());
+ipcMain.handle('permissions:request', event => { requirePermissionWindow(event); return requestPermissions(); });
+ipcMain.handle('permissions:details', async event => {
+  requirePermissionWindow(event);
+  return { version: app.getVersion(), executable: app.getPath('exe'), repairAvailable: screenPermissionRepair.available,
+    signing: await signingDetails() };
 });
-ipcMain.handle('permissions:request', () => requestPermissions());
+ipcMain.handle('permissions:repair-screen', async event => {
+  requirePermissionWindow(event);
+  const saved = await win.webContents.executeJavaScript('window.CueMeetingModeUI ? window.CueMeetingModeUI.flush() : true');
+  if (!saved) throw new Error('Save your mode edits before restarting Cue.');
+  return screenPermissionRepair.repair();
+});
 ipcMain.on('permissions:show', event => {
   if (win && !win.isDestroyed() && event.sender === win.webContents) createPermissionsWindow();
 });
@@ -1443,8 +1456,7 @@ ipcMain.on('permissions:continue', event => {
 });
 ipcMain.on('app:restart', event => {
   if (event.sender !== win?.webContents && event.sender !== permWin?.webContents) return;
-  app.relaunch({ execPath: app.getPath('exe') });
-  app.quit();
+  restartCue();
 });
 
 // -------- shortcuts --------
@@ -1468,6 +1480,36 @@ function registerShortcuts() {
 function getPermissionStatus() {
   return readPermissionStatus(systemPreferences);
 }
+function requirePermissionWindow(event) {
+  if (event.sender !== win?.webContents && event.sender !== permWin?.webContents) throw new Error('Manage capture access from Cue.');
+}
+function publishPermissionStatus() {
+  const status = getPermissionStatus();
+  send('permissions:changed', status);
+  if (permWin && !permWin.isDestroyed()) permWin.webContents.send('permissions:changed', status);
+  return status;
+}
+let signingDetailsPromise = null;
+function signingDetails() {
+  if (!isMac) return Promise.resolve({ kind: 'not-applicable', stable: true });
+  if (!signingDetailsPromise) signingDetailsPromise = readSigningInfo(app.isPackaged ? path.resolve(process.resourcesPath, '..', '..') : app.getPath('exe'));
+  return signingDetailsPromise;
+}
+function restartCue(requestScreen = false) {
+  app.relaunch({ execPath: app.getPath('exe'), args: relaunchArgs(process.argv, requestScreen) });
+  app.quit();
+}
+const screenPermissionRepair = createScreenPermissionRepair({
+  platform: process.platform, isPackaged: app.isPackaged, bundleId: 'com.cue.overlay',
+  stopCapture: async () => { desiredCaptureState = false; await setCapturing(false); },
+  run: (file, args) => new Promise((resolve, reject) => {
+    execFile(file, args, { timeout: 10000, maxBuffer: 8192 }, error => error
+      ? reject(new Error('macOS could not refresh Cue’s screen grant. Try removing Cue from Screen Recording in System Settings, then adding it again.')) : resolve());
+  }),
+  restart: async () => {
+    restartCue(true);
+  }
+});
 
 let pendingPermissionRequest = null;
 function requestPermissions() {
@@ -1482,12 +1524,15 @@ function requestPermissions() {
 function createPermissionsWindow() {
   if (permWin && !permWin.isDestroyed()) { permWin.show(); permWin.focus(); return; }
   const { workArea } = screen.getPrimaryDisplay();
-  const W = 540, H = 600;
+  const W = Math.min(540, workArea.width), H = Math.min(760, workArea.height - 24);
+  // An overlay at screen-saver level can cover macOS's own Allow / Touch ID
+  // prompts. Keep it at ordinary level while the user reviews capture access.
+  win?.setAlwaysOnTop(false);
   permWin = new BrowserWindow({
     width: W,
     height: H,
-    minWidth: 500,
-    minHeight: 560,
+    minWidth: Math.min(500, W),
+    minHeight: Math.min(560, H),
     x: Math.round(workArea.x + (workArea.width - W) / 2),
     y: Math.round(workArea.y + (workArea.height - H) / 2),
     frame: true,
@@ -1506,7 +1551,13 @@ function createPermissionsWindow() {
   });
   protection.applyToWindow(permWin);
   permWin.loadFile(path.join(__dirname, 'renderer', 'permissions.html'));
-  permWin.on('closed', () => { permWin = null; });
+  let refreshTimer = null;
+  permWin.on('focus', publishPermissionStatus);
+  permWin.on('closed', () => {
+    clearInterval(refreshTimer); permWin = null;
+    if (win && !win.isDestroyed()) win.setAlwaysOnTop(true, 'screen-saver', 1);
+  });
+  refreshTimer = setInterval(publishPermissionStatus, 2000);
   permWin.webContents.on('did-finish-load', () => permWin.show());
 }
 
@@ -1629,6 +1680,7 @@ app.on('before-quit', event => {
   }).finally(() => { clearTimeout(timer); quitPending = false; });
 });
 app.whenReady().then(async () => {
+  if (!ownsInstanceLock) return;
   const onDisplayChange = () => { stopWindowInteraction(); fitWindowOnScreen(); saveWindowPosition(); };
   screen.on('display-removed', onDisplayChange);
   screen.on('display-metrics-changed', onDisplayChange);
@@ -1646,6 +1698,15 @@ app.whenReady().then(async () => {
     writeVersion: version => store.setSettings({ macRegistrationVersion: version })
   });
   void macDiscovery.refresh();
+  // This flag exists only after the user's explicit Repair action. Consume it
+  // before requesting once; ordinary startup remains entirely prompt-free.
+  if (screenPermissionRepair.available && app.commandLine.hasSwitch(SCREEN_REPAIR_SWITCH)) {
+    app.commandLine.removeSwitch(SCREEN_REPAIR_SWITCH);
+    process.argv.splice(1, process.argv.length - 1, ...relaunchArgs(process.argv));
+    createPermissionsWindow();
+    try { await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } }); } catch (_) {}
+    publishPermissionStatus();
+  }
   app.on('activate', () => showMainWindow());
 });
 

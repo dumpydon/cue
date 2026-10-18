@@ -40,6 +40,8 @@
       border-radius: 24px;
       box-shadow: 0 16px 48px rgba(0,0,0,0.50), 0 2px 8px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.10);
       padding: 32px 30px 24px;
+      max-height: calc(100% - 24px);
+      overflow-y: auto;
       text-align: center;
       -webkit-app-region: drag;
     }
@@ -115,6 +117,14 @@
       border: 1px solid rgba(255,255,255,0.06);
     }
     .perm-note strong { color: var(--tx-2); font-weight: 600; }
+    .perm-repair { margin-top: 12px; padding: 12px; text-align: left; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; }
+    .perm-repair p, .perm-details { color: var(--tx-mut); font-size: 11px; line-height: 1.5; }
+    .perm-repair p { margin-top: 7px; }
+    .perm-repair button { border: 0; border-radius: 7px; padding: 7px 10px; background: rgba(60,131,245,.15); color: #a8ccff; font: 600 12px var(--font); cursor: pointer; }
+    .perm-repair button:disabled { opacity: .5; cursor: wait; }
+    .perm-details { text-align: left; margin-top: 12px; overflow-wrap: anywhere; }
+    .perm-details summary { cursor: pointer; }
+    .hidden { display: none !important; }
 
     /* Actions */
     .perm-actions {
@@ -213,8 +223,13 @@
       </div>
 
       <div class="perm-note">
-        <strong>Already enabled?</strong> Click <strong>Restart Cue</strong> so macOS applies the current grant. You can return to Cue to move, resize, and chat while capture access is unavailable.
+        <strong>Already enabled?</strong> Restart Cue once to apply a changed grant. If Screen Recording is still unavailable, repair Cue’s saved screen grant below. The macOS switch can refer to an older signed version of the app.
       </div>
+      <div class="perm-repair no-drag hidden" id="repair-screen-wrap">
+        <button id="repair-screen-btn" type="button">Repair Cue’s screen grant</button>
+        <p id="repair-screen-status" role="status">Resets only Cue’s Screen Recording grant and restarts Cue. macOS will ask you to allow the current app. Your microphone grant, keys, modes, and saved sessions are kept.</p>
+      </div>
+      <details class="perm-details no-drag"><summary>App details</summary><div id="permission-app-details">Loading…</div></details>
 
       <div class="perm-actions no-drag">
         <button class="perm-ghost" id="quit-btn">Restart Cue</button>
@@ -240,8 +255,13 @@
       const checkBtn = document.getElementById('check-btn');
       const continueBtn = document.getElementById('continue-btn');
       const quitBtn = document.getElementById('quit-btn');
+      const repairWrap = document.getElementById('repair-screen-wrap');
+      const repairBtn = document.getElementById('repair-screen-btn');
+      let details = null;
+      let latestStatus = null;
 
       function updateUI(status) {
+        latestStatus = status;
         const micOk = status.mic === 'granted';
         const screenOk = status.screen === 'granted';
 
@@ -263,6 +283,7 @@
 
         // Continue
         continueBtn.disabled = false;
+        repairWrap.classList.toggle('hidden', screenOk || !details?.repairAvailable);
       }
 
       async function checkPermissions() {
@@ -306,6 +327,20 @@
 
       // Relaunch this exact installed executable after macOS changes a grant.
       quitBtn.addEventListener('click', () => cue.restart());
+      repairBtn.addEventListener('click', async () => {
+        repairBtn.disabled = true;
+        document.getElementById('repair-screen-status').textContent = 'Refreshing Cue’s saved grant and restarting…';
+        try { await cue.permissionsRepairScreen(); }
+        catch (error) { document.getElementById('repair-screen-status').textContent = error.message.replace(/^Error invoking remote method '[^']+': (?:Error: )?/, ''); repairBtn.disabled = false; }
+      });
+      cue.on('permissions:changed', updateUI);
+      window.addEventListener('focus', checkPermissions);
+      cue.permissionsDetails().then(info => {
+        details = info;
+        const signing = info.signing.stable ? 'Stable signing identity' : info.signing.kind === 'ad-hoc' ? 'Development signing changes identity after a rebuild' : 'Signing identity unavailable';
+        document.getElementById('permission-app-details').textContent = 'Cue ' + info.version + ' · ' + signing + '\n' + info.executable;
+        if (latestStatus) updateUI(latestStatus);
+      }).catch(() => { document.getElementById('permission-app-details').textContent = 'App details unavailable.'; });
 
       // Initial check on page load
       checkPermissions();

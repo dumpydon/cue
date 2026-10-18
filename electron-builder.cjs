@@ -19,6 +19,9 @@
 // the leaf certificate, and signing with an incomplete chain fails in a way
 // that looks like a wrong password.
 const hasCert = process.env.MAC_SIGN === "1";
+// An explicitly selected local certificate keeps development builds' identity
+// stable. It never qualifies a build for notarization or public release.
+const localIdentity = !hasCert ? process.env.CUE_LOCAL_SIGN_IDENTITY?.trim() : '';
 const canNotarize =
   hasCert &&
   !!process.env.APPLE_ID &&
@@ -45,8 +48,8 @@ module.exports = {
     // With a real cert, let electron-builder discover it and apply the hardened
     // runtime (notarization is refused without it). Without one, identity:null
     // makes it skip signing rather than fail.
-    identity: hasCert ? undefined : null,
-    hardenedRuntime: hasCert,
+    identity: hasCert ? undefined : (localIdentity || null),
+    hardenedRuntime: hasCert || !!localIdentity,
     gatekeeperAssess: false,
     entitlements: "build-resources/entitlements.mac.plist",
     entitlementsInherit: "build-resources/entitlements.mac.plist",

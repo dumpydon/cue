@@ -1,0 +1,10 @@
+# Cue development and installation
+
+- Preserve the user's local settings, provider credentials, meeting modes, files, and sessions during updates. Never commit local data, private signing keys, certificates with private keys, or build archives.
+- Keep one installed Cue bundle. Store rollback builds as ZIP files rather than additional launchable `.app` copies with the same bundle identifier.
+- Run unit tests and relevant isolated Electron interaction suites before updating the installed application. Finish bundle edits before signing.
+- For local macOS updates, use the approved persistent signing identity through `scripts/sign-local-macos.cjs`. Its public configuration is outside the repository at `~/Library/Application Support/Cue Development/local-signing.json`. Never replace an already certificate-signed installation with an ad-hoc-signed build or rewrite its designated requirement to match only a bundle ID.
+- A local development identity is not a public distribution identity. Public macOS releases require Apple Developer ID signing and notarization.
+- Ordinary startup, focus refreshes, and Check Again must only read permission status. They must never request access, capture screen/audio, reset TCC, or launch a repair automatically.
+- Screen permission repair is explicit and scoped to `ScreenCapture` for `com.cue.overlay`. Do not reset all TCC permissions, edit the TCC database, disable SIP, or change system-wide security settings.
+- Verify both native permission status and actual local capture after the final install, then relaunch the same unchanged signed bundle to confirm the grant persists. Do not expose screenshot pixels, transcripts, or credentials in diagnostics.
