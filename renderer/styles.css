@@ -5,7 +5,7 @@
   --side-w: calc(300px / var(--native-zoom)); /* native DIP gutters never grow with text zoom */
   --main-w: calc(100vw - 2 * var(--side-w));
   --incognito-inset: 0px;
-  --incognito-dots: #62666d;
+  --incognito-dots: #292c28;
   --bg: #2b013d;
   --panel-bg: #3f3642;
   --accent: #3C83F5;
@@ -103,10 +103,9 @@ html, body {
 .incognito-outline rect {
   fill: none;
   stroke: var(--incognito-dots);
-  stroke-width: calc(4px / var(--native-zoom));
-  /* Round zero-length dashes give 4 DIP dots at 12 DIP intervals, about a
-     third as many dots as the former 2 DIP browser-drawn dotted border. */
-  stroke-dasharray: 0 calc(12px / var(--native-zoom));
+  stroke-width: calc(3.4px / var(--native-zoom));
+  /* Round zero-length dashes keep dot size and spacing constant in native DIP. */
+  stroke-dasharray: 0 calc(10px / var(--native-zoom));
   stroke-linecap: round;
 }
 html.incognito-mode .incognito-outline { opacity: 1; }
