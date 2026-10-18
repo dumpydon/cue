@@ -24,7 +24,7 @@ test('local signing requires a specific certificate and verifies continuity with
   } });
   assert.equal(result.stable, true);
   assert.ok(calls.some(([, args]) => args.includes('--sign') && args.includes(f.fingerprint)));
-  assert.ok(calls.some(([, args]) => args.includes('-R') && args.includes(requirement)));
+  assert.ok(calls.some(([, args]) => args.includes('-R') && args.includes('=' + requirement)), 'literal requirements must use the = prefix rather than being interpreted as file paths');
   assert.ok(!calls.some(([, args]) => args.includes('--sign') && args[args.indexOf('--sign') + 1] === '-'), 'never silently falls back to ad-hoc signing');
 });
 

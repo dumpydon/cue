@@ -30,7 +30,7 @@ function signLocalBundle(bundlePath, { configPath = path.join(os.homedir(), 'Lib
   })();
   const signature = parseSigningInfo(output);
   if (!signature.stable || !signature.requirement.toLowerCase().includes(config.fingerprint.toLowerCase())) throw new Error('The final code identity is not bound to the configured local certificate.');
-  if (config.requirement) execute('/usr/bin/codesign', ['--verify', '--deep', '--strict', '-R', config.requirement, bundle]);
+  if (config.requirement) execute('/usr/bin/codesign', ['--verify', '--deep', '--strict', '-R', '=' + config.requirement, bundle]);
   if (!config.requirement) fs.writeFileSync(configPath, JSON.stringify({ ...config, requirement: signature.requirement }, null, 2) + '\n', { mode: 0o600 });
   return { bundle, authority: signature.authority, stable: true, requirement: signature.requirement };
 }
