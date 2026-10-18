@@ -1,5 +1,5 @@
 (function (root) {
-  function install({ button, cue, icon, onError = () => {} }) {
+  function install({ button, cue, icon, onError = () => {}, onStateChange = () => {} }) {
     let state = null;
     let pending = true;
     function render(next) {
@@ -15,6 +15,7 @@
       const limit = next.bestEffort ? ' Best effort on macOS; some capture tools can still show Cue.' : '';
       button.title = next.available ? `Hidden mode: ${hidden ? 'on' : 'off'}. ${action}${limit}` : next.reason;
       button.disabled = pending || !next.available;
+      onStateChange(next);
     }
     cue.on('protection:changed', render);
     button.addEventListener('click', async () => {

@@ -16,7 +16,10 @@
   $('#sessions-btn').innerHTML = icon('history', { size: 16 });
   window.CueWindowZoom.install({ cue }).ready.catch(error => showStatus(error.message));
   $('#tb-settings-btn').innerHTML = icon('settings', { size: 16 });
-  window.CueProtectionToggle.install({ button: $('#protection-btn'), cue, icon, onError: message => showStatus(message) });
+  window.CueProtectionToggle.install({ button: $('#protection-btn'), cue, icon,
+    onStateChange: state => document.documentElement.classList.toggle('incognito-mode', !!state.enabled),
+    onError: message => showStatus(message)
+  });
   $('.tb-hide .chev').innerHTML = icon('chevron-down', { size: 14 });
   $('#opacity-btn .ic').innerHTML = icon('eclipse', { size: 14 });
   $('#quit-btn').innerHTML = icon('x', { size: 14 });

@@ -101,18 +101,53 @@ app.on('browser-window-created', (_event, win) => {
         })`);
       }
       if (testProtection) {
+        const protectionBounds = win.getBounds();
+        async function protectionLayout() {
+          await pause(220);
+          return js(`(() => {
+            const rect = selector => { const r = document.querySelector(selector).getBoundingClientRect();
+              return { x:r.x, y:r.y, width:r.width, height:r.height }; };
+            const outline = getComputedStyle(document.querySelector('#panel-wrap'), '::before');
+            return { frame:rect('#panel-wrap'), panel:rect('#panel'), toolbar:rect('#toolbar'),
+              font:getComputedStyle(document.querySelector('.ai-text')).fontSize,
+              hidden:document.documentElement.classList.contains('incognito-mode'),
+              dots:outline.borderTopStyle, opacity:outline.opacity, pointerEvents:outline.pointerEvents };
+          })()`);
+        }
         await waitForProtection('hat-glasses');
+        const hiddenLayout = await protectionLayout();
+        assert.equal(hiddenLayout.hidden, true);
+        assert.equal(hiddenLayout.dots, 'dotted');
+        assert.equal(hiddenLayout.opacity, '1');
+        assert.equal(hiddenLayout.pointerEvents, 'none', 'outline never intercepts controls');
+        assert.equal(hiddenLayout.panel.x - hiddenLayout.frame.x, 7);
+        assert.equal(hiddenLayout.panel.y - hiddenLayout.frame.y, 7);
+        assert.equal(hiddenLayout.frame.width - hiddenLayout.panel.width, 14);
+        assert.equal(hiddenLayout.frame.height - hiddenLayout.panel.height, 14);
+        assert.deepEqual(win.getBounds(), protectionBounds, 'incognito leaves native geometry unchanged');
         assert.equal(win.protectionCalls.at(-1), true, 'startup sets the native protection flag');
         assert.equal(await js("document.querySelector('#protection-btn').getAttribute('aria-pressed')"), 'true');
         await screenshot('hidden-mode');
+        await js("document.body.style.background='#fff'"); await screenshot('incognito-white');
+        await js("document.body.style.background='#16181e'"); await screenshot('incognito-dark');
+        await js("document.body.style.background=''");
         await js("document.querySelector('#protection-btn').click()");
         await waitForProtection('eye');
+        const visibleLayout = await protectionLayout();
+        assert.equal(visibleLayout.hidden, false);
+        assert.equal(visibleLayout.opacity, '0');
+        assert.deepEqual(visibleLayout.panel, visibleLayout.frame, 'visible mode restores the full panel');
+        assert.deepEqual(visibleLayout.frame, hiddenLayout.frame, 'dotted border marks the original bounds');
+        assert.deepEqual(visibleLayout.toolbar, hiddenLayout.toolbar, 'toolbar controls stay in place');
+        assert.equal(visibleLayout.font, hiddenLayout.font, 'inset never scales text');
+        assert.deepEqual(win.getBounds(), protectionBounds, 'leaving incognito preserves native geometry');
         assert.equal(win.protectionCalls.at(-1), false, 'visible mode clears native protection');
         assert.equal(JSON.parse(fs.readFileSync(path.join(profile, 'cue-data.json'), 'utf8')).screenShareProtection, false);
         await screenshot('visible-mode');
         const loaded = new Promise(resolve => wc.once('did-finish-load', resolve));
         wc.reload(); await loaded;
         await waitForProtection('eye');
+        assert.equal(await js("document.documentElement.classList.contains('incognito-mode')"), false);
         const before = win.protectionCalls.length;
         await js("document.querySelector('#protection-btn').click(); document.querySelector('#protection-btn').click()");
         await waitForProtection('hat-glasses');

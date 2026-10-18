@@ -4,6 +4,8 @@
   --native-zoom: 1;
   --side-w: calc(300px / var(--native-zoom)); /* native DIP gutters never grow with text zoom */
   --main-w: calc(100vw - 2 * var(--side-w));
+  --incognito-inset: 0px;
+  --incognito-dots: #85888e;
   --bg: #2b013d;
   --panel-bg: #3f3642;
   --accent: #3C83F5;
@@ -29,6 +31,8 @@
   --font: -apple-system, 'SF Pro Text', 'SF Pro Display', system-ui, 'Segoe UI', sans-serif;
   --mono: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, monospace;
 }
+
+html.incognito-mode { --incognito-inset: calc(7px / var(--native-zoom)); }
 
 * { box-sizing: border-box; }
 
@@ -83,6 +87,39 @@ html, body {
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
   backdrop-filter: blur(24px) saturate(160%);
   -webkit-backdrop-filter: blur(24px) saturate(160%);
+}
+/* Keep the original outline while the protected surfaces draw slightly inward.
+   These are renderer-only insets: native bounds and saved window size stay fixed. */
+#toolbar::before, #panel-wrap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: calc(2px / var(--native-zoom)) dotted var(--incognito-dots);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+html.incognito-mode #toolbar::before, html.incognito-mode #panel-wrap::before { opacity: 1; }
+html.incognito-mode #toolbar {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html.incognito-mode #toolbar::after {
+  content: '';
+  position: absolute;
+  inset: calc(4px / var(--native-zoom));
+  z-index: -1;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: inherit;
+  background: var(--bg);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  pointer-events: none;
 }
 #toolbar, #panel, #composer, .ts-header, .s-head, .cs-title { cursor: grab; }
 .ai-text, .interim-transcript, .ob-body, .cs-body { cursor: text; }
@@ -189,10 +226,13 @@ html[data-window-interaction], html[data-window-interaction] * {
   width: calc(100% - 76px / var(--native-zoom));
   flex: 1;
   min-height: 0;
+  padding: var(--incognito-inset);
+  border-radius: var(--r-panel);
+  transition: padding 180ms ease;
 }
 
 /* Handles follow the visible panel, not the transparent sidebar gutters. */
-#resize-frame { position: absolute; inset: calc(-6px / var(--native-zoom)); z-index: 10; pointer-events: none; }
+#resize-frame { position: absolute; inset: calc(-6px / var(--native-zoom) + var(--incognito-inset)); z-index: 10; pointer-events: none; }
 .window-resize-handle { position: absolute; pointer-events: auto; touch-action: none; }
 .resize-n, .resize-s { height: calc(12px / var(--native-zoom)); left: calc(26px / var(--native-zoom)); right: calc(26px / var(--native-zoom)); cursor: ns-resize; }
 .resize-n { top: 0; }
@@ -218,7 +258,7 @@ html[data-window-interaction], html[data-window-interaction] * {
 .resize-sw { bottom: 0; left: 0; cursor: nesw-resize; }
 button:focus { outline: none; }
 #live-dot {
-  position: absolute; top: -3px; left: -5px; z-index: 4;
+  position: absolute; top: calc(-3px + var(--incognito-inset)); left: calc(-5px + var(--incognito-inset)); z-index: 4;
   width: 10px; height: 10px; border-radius: 50%;
   background: var(--live);
   box-shadow: 0 0 0 3px rgba(34,197,94,0.25), 0 0 8px rgba(34,197,94,0.6);
@@ -234,7 +274,16 @@ button:focus { outline: none; }
   border-radius: var(--r-panel);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
 }
-#panel { position: relative; z-index: 1; padding: 38px 22px 20px; height: 100%; min-height: 0; overflow: hidden; display: flex; flex-direction: column; animation: overlayIn 260ms cubic-bezier(0.22,1,0.36,1); }
+#panel {
+  position: relative; z-index: 1;
+  /* Use the existing outer padding for the inset, keeping text and controls
+     stationary and preserving answer space even at the minimum window size. */
+  padding: calc(38px - var(--incognito-inset)) calc(22px - var(--incognito-inset)) calc(20px - var(--incognito-inset));
+  border-radius: calc(var(--r-panel) - var(--incognito-inset));
+  height: 100%; min-height: 0; overflow: hidden; display: flex; flex-direction: column;
+  animation: overlayIn 260ms cubic-bezier(0.22,1,0.36,1);
+  transition: padding 180ms ease, border-radius 180ms ease;
+}
 #panel-wrap.collapsed { display: none; } /* hides the panel with its status label, live dot, sidebar and toast */
 
 /* ============================ Messages ============================ */
@@ -715,8 +764,8 @@ button:focus { outline: none; }
    logic treats the area as empty. */
 .transcript-sidebar {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: var(--incognito-inset);
+  bottom: var(--incognito-inset);
   left: calc(100% + 12px / var(--native-zoom));
   width: calc(300px / var(--native-zoom));
   min-height: 0;
@@ -896,7 +945,7 @@ button:focus { outline: none; }
 
 /* ============================ STT status ============================ */
 #stt-status {
-  position: absolute; top: 14px; left: 14px; z-index: 4;
+  position: absolute; top: calc(14px + var(--incognito-inset)); left: calc(14px + var(--incognito-inset)); z-index: 4;
   font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   white-space: nowrap; pointer-events: none;
 }
@@ -933,6 +982,7 @@ button:focus { outline: none; }
   #panel, .user-bubble, .ai-text .w { animation: none !important; opacity: 1 !important; transform: none !important; }
   #live-dot { animation: none !important; }
   .transcript-sidebar { transition: none !important; }
+  #panel, #panel-wrap, #toolbar::before, #panel-wrap::before { transition: none !important; }
 }
 
 /* ============================ Assistant access ============================ */
