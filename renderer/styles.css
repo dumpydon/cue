@@ -103,9 +103,9 @@ html, body {
 .incognito-outline rect {
   fill: none;
   stroke: var(--incognito-dots);
-  stroke-width: calc(3.4px / var(--native-zoom));
+  stroke-width: calc(3.06px / var(--native-zoom));
   /* Round zero-length dashes keep dot size and spacing constant in native DIP. */
-  stroke-dasharray: 0 calc(10px / var(--native-zoom));
+  stroke-dasharray: 0 calc(100px / 11 / var(--native-zoom));
   stroke-linecap: round;
 }
 html.incognito-mode .incognito-outline { opacity: 1; }

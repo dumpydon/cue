@@ -121,8 +121,8 @@ app.on('browser-window-created', (_event, win) => {
         await waitForProtection('hat-glasses');
         const hiddenLayout = await protectionLayout();
         assert.equal(hiddenLayout.hidden, true);
-        assert.equal(hiddenLayout.diameter, '3.4px');
-        assert.equal(hiddenLayout.spacing, '0px, 10px');
+        assert.equal(hiddenLayout.diameter, '3.06px');
+        assert.ok(Math.abs(parseFloat(hiddenLayout.spacing.split(',')[1]) - 100 / 11) < 0.0001);
         assert.equal(hiddenLayout.color, 'rgb(41, 44, 40)');
         assert.equal(hiddenLayout.opacity, '1');
         assert.equal(hiddenLayout.pointerEvents, 'none', 'outline never intercepts controls');
