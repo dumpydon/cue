@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:;" />
+  <title>cue</title>
+  <link rel="icon" href="assets/cue-icon.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="meeting-modes.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Toolbar; all non-interactive panel surfaces can move the window. -->
+    <div id="toolbar">
+      <button class="tb-logo" id="logo-btn" title="How to use cue" aria-label="How to use cue"></button>
+      <button class="tb-settings" id="tb-settings-btn" title="Settings" aria-label="Settings"></button>
+      <button class="tb-protection" id="protection-btn" type="button" title="Loading screen-share protection status" aria-label="Screen-share protection" aria-pressed="false" disabled></button>
+      <button class="tb-modes" id="modes-btn" type="button" title="Meeting mode: General" aria-label="Meeting mode: General" aria-haspopup="menu" aria-expanded="false" aria-controls="meeting-mode-menu"></button>
+      <button class="tb-sessions" id="sessions-btn" type="button" title="View sessions" aria-label="View sessions"></button>
+      <div class="tb-divider"></div>
+      <button class="tb-hide" id="hide-btn" title="Hide" aria-label="Hide"><span class="chev"></span><span class="tb-hide-label">Hide</span></button>
+      <div class="tb-divider"></div>
+      <button class="tb-stop" id="stop-btn" title="Start session" aria-label="Start session">
+        <span class="ic"></span><span class="tb-stop-label">Start session</span>
+      </button>
+      <div class="tb-divider"></div>
+      <div class="tb-opacity-wrap">
+        <button class="tb-opacity" id="opacity-btn" title="Opacity" aria-label="Opacity" aria-expanded="false">
+          <span class="ic"></span>
+        </button>
+        <div id="opacity-popover" class="opacity-popover hidden">
+          <div class="opacity-label">Opacity</div>
+          <div class="opacity-row">
+            <input type="range" id="tb-opacity-slider" min="20" max="100" step="1" value="100" />
+            <span id="tb-opacity-value">100%</span>
+          </div>
+        </div>
+      </div>
+      <div class="tb-divider"></div>
+      <button class="tb-permissions hidden" id="permissions-btn" title="Review microphone and screen access" aria-label="Review capture permissions"><span class="ic"></span><span>Permissions</span></button>
+      <button class="tb-quit" id="quit-btn" title="Quit cue" aria-label="Quit cue"></button>
+    </div>
+
+    <!-- Main assistant panel -->
+    <div id="panel-wrap">
+      <div id="resize-frame" aria-hidden="true">
+        <div class="window-resize-handle resize-n" data-resize="n" title="Resize vertically"></div>
+        <div class="window-resize-handle resize-s" data-resize="s" title="Resize vertically"></div>
+        <div class="window-resize-handle resize-e" data-resize="e" title="Resize horizontally"></div>
+        <div class="window-resize-handle resize-w" data-resize="w" title="Resize horizontally"></div>
+        <div class="window-resize-handle resize-ne" data-resize="ne" title="Resize diagonally"></div>
+        <div class="window-resize-handle resize-nw" data-resize="nw" title="Resize diagonally"></div>
+        <div class="window-resize-handle resize-se" data-resize="se" title="Drag to resize width and height">
+          <div class="resize-grip">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 12 12 4M6 4h6v6M4 7v5h5" /></svg>
+          </div>
+        </div>
+        <div class="window-resize-handle resize-sw" data-resize="sw" title="Resize diagonally"></div>
+      </div>
+      <span id="live-dot" class="off"></span>
+      <div id="stt-status" class="stt-status stt-disconnected">Transcription off</div>
+      <div id="panel" class="glass no-drag">
+
+        <!-- Two-column layout: responses (left) + live transcript sidebar (right) -->
+        <div id="panel-columns">
+
+          <!-- Left column: AI responses -->
+          <div id="panel-main">
+            <div id="messages"></div>
+
+            <div id="action-row">
+              <button class="act act-primary" data-mode="say"
+                title="Suggests what to say next based on the conversation">
+                <span class="ic"></span><span>What should I say?</span>
+                <span class="shortcut-hint" id="say-shortcut-hint"></span>
+              </button>
+              <span class="sep">•</span>
+              <button class="act act-secondary" data-mode="assist"
+                title="Scans your screen and conversation to decide what you need">
+                <span class="ic"></span><span>Smart assist</span>
+                <span class="shortcut-hint" id="assist-shortcut-hint"></span>
+              </button>
+              <span class="sep">•</span>
+              <button class="act" data-mode="recap"><span class="ic"></span><span>Recap</span></button>
+            </div>
+
+            <div id="composer">
+              <div id="input-area">
+                <div id="placeholder">Ask about your screen or conversation, or <span class="keycap">⌘</span><span class="keycap">⇧</span><span class="keycap">⏎</span> for Smart assist</div>
+                <textarea id="input" rows="1" spellcheck="false"></textarea>
+              </div>
+              <div id="composer-bottom">
+                <button id="smart-toggle" class="smart-pill"><span class="ic"></span><span>Smart</span></button>
+                <button id="history-btn" class="history-btn" title="Show everything said this session"><span class="ic"></span><span>Transcription history</span></button>
+                <button id="more-btn" class="more-btn" title="Settings"></button>
+                <div class="spacer"></div>
+                <button id="send-btn" title="Send"></button>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /panel-columns -->
+      </div>
+
+      <!-- Transcript history sidebar — slides out from behind the panel's right edge -->
+      <div id="transcript-sidebar" class="transcript-sidebar">
+        <div class="ts-header">
+          <span class="ts-title">Transcription history</span>
+          <button class="ts-close-btn" id="close-sidebar-btn" title="Close history">✕</button>
+        </div>
+        <div id="ts-list" class="ts-list">
+          <div class="ts-placeholder">Conversation history will appear here when listening.</div>
+        </div>
+        <div class="ts-footer">
+          <button class="ts-clear-btn" id="clear-transcript-btn" title="Clear all history">Clear History</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Saved sessions stay local; opening this viewer never calls a provider. -->
+  <div id="sessions-scrim" class="hidden">
+    <section id="sessions" class="glass" role="dialog" aria-modal="true" aria-labelledby="sessions-title">
+      <div class="sessions-head">
+        <img src="assets/cue-mark.svg" width="24" height="24" alt="" />
+        <h2 id="sessions-title">Sessions</h2>
+        <button id="sessions-refresh" class="session-icon-btn" title="Refresh sessions" aria-label="Refresh sessions"></button>
+        <button id="sessions-close" class="s-close">Done</button>
+      </div>
+      <p class="sessions-caption">Your saved conversations and notes · stored on this Mac</p>
+      <button id="sessions-back" class="session-back hidden">← All sessions</button>
+      <div id="sessions-content" tabindex="0" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <!-- Settings -->
+  <div id="modes-scrim" class="hidden">
+    <section id="meeting-modes" role="dialog" aria-modal="true" aria-labelledby="modes-heading">
+      <header class="modes-head">
+        <div><h2 id="modes-heading">Modes</h2><p>Choose the context Cue brings to the conversation.</p></div>
+        <button id="modes-done" class="modes-primary" type="button">Done</button>
+      </header>
+      <div class="modes-body">
+        <aside class="modes-sidebar" data-no-window-drag>
+          <button id="mode-new" class="mode-new" type="button"><span aria-hidden="true">+</span> New Mode</button>
+          <div id="mode-list" aria-label="Meeting modes"></div>
+          <p class="mode-reorder-hint">Drag the grip to reorder.</p>
+        </aside>
+        <div id="mode-editor" class="mode-editor" data-no-window-drag>
+          <div class="mode-title-row">
+            <input id="mode-title" type="text" maxlength="100" aria-label="Mode name" placeholder="Untitled Mode" autocomplete="off" />
+            <button id="mode-more" class="mode-icon-button" type="button" aria-label="Mode actions" aria-expanded="false" aria-controls="mode-actions"></button>
+            <div id="mode-actions" class="mode-actions hidden">
+              <button id="mode-duplicate" type="button">Duplicate mode</button>
+              <button id="mode-delete" type="button">Delete mode</button>
+            </div>
+          </div>
+          <label for="mode-context" class="mode-label">Meeting context</label>
+          <textarea id="mode-context" rows="9" maxlength="32000" placeholder="Tell Cue what this meeting is about, or leave it blank for general help."></textarea>
+          <div class="mode-context-meta"><span>Changes save automatically.</span><span id="mode-character-count"></span></div>
+          <div class="mode-files-heading"><h3>Files</h3><span id="mode-file-count"></span></div>
+          <div id="mode-file-list"></div>
+          <button id="mode-file-drop" class="mode-file-drop" type="button">
+            <span class="mode-file-art" aria-hidden="true"></span>
+            <strong>Add files for more context</strong>
+            <span>Drag &amp; drop files here, or browse files</span>
+            <small>PDF, DOCX, TXT, Markdown · up to 5 MB each</small>
+          </button>
+          <p class="mode-privacy-note">Saved on this Mac. When you ask Cue, the active mode’s context and file text are sent to your selected AI provider.</p>
+        </div>
+      </div>
+      <footer class="modes-footer">
+        <div class="mode-save-info"><span id="mode-save-status" role="status" aria-live="polite">Saved</span><button id="mode-save-retry" class="hidden" type="button">Retry save</button><button id="mode-reload" class="hidden" type="button">Reload saved version</button></div>
+        <button id="mode-undo-delete" class="modes-ghost hidden" type="button">Undo delete</button>
+        <button id="mode-activate" class="modes-primary" type="button">Set Active</button>
+      </footer>
+    </section>
+  </div>
+
+  <div id="settings-scrim" class="hidden">
+    <div id="settings" class="glass">
+      <div class="s-head">
+        <div class="s-title"><img src="assets/cue-mark.svg" width="20" height="20" alt="" /> Settings</div>
+        <div class="s-head-actions"><button id="manage-modes-settings" class="modes-settings-open" type="button">Modes</button><button id="s-close" class="s-close">Done</button></div>
+      </div>
+
+      <!-- Tab bar -->
+      <div class="s-tabs">
+        <button class="s-tab on" data-tab="keys">🔑 API Keys</button>
+        <button class="s-tab" data-tab="transcription">🔉 Audio</button>
+        <button class="s-tab" data-tab="style">✨ Style</button>
+        <button class="s-tab" data-tab="appearance">🌗 Appearance</button>
+      </div>
+
+      <!-- Tab: Keys -->
+      <div class="s-body s-tab-pane" data-pane="keys">
+        <label class="s-label">Provider</label>
+        <div class="s-seg" id="provider-seg">
+          <button data-provider="publik" id="provider-publik" class="hidden">publik API <span class="s-default-badge">default</span></button>
+          <button data-provider="cerebras">Cerebras</button>
+          <button data-provider="openai">OpenAI</button>
+          <button data-provider="anthropic">Anthropic</button>
+          <button data-provider="gemini">Gemini</button>
+          <button data-provider="groq">Groq</button>
+          <button data-provider="custom">Custom</button>
+          <button data-provider="ollama">Ollama</button>
+          <button data-provider="minimax">MiniMax</button>
+          <button data-provider="deepseek">DeepSeek</button>
+          <button data-provider="azure">Azure AI</button>
+        </div>
+
+        <label class="s-label">API keys &amp; URLs <span class="s-hint">stored locally · used only to contact your providers</span></label>
+        <div class="s-field" data-key-for="cerebras"><span>Cerebras</span><input id="key-cerebras" type="password" placeholder="csk-..." autocomplete="off" /></div>
+        <div class="s-field" data-key-for="openai"><span>OpenAI</span><input id="key-openai" type="password" placeholder="sk-..." autocomplete="off" /></div>
+        <div class="s-field" data-key-for="anthropic"><span>Anthropic</span><input id="key-anthropic" type="password" placeholder="sk-ant-..." autocomplete="off" /></div>
+        <div class="s-field" data-key-for="gemini"><span>Gemini</span><input id="key-gemini" type="password" placeholder="AIza..." autocomplete="off" /></div>
+        <div class="s-field" data-key-for="deepgram"><span>Deepgram</span><input id="key-deepgram" type="password" placeholder="dg-..." autocomplete="off" /></div>
+        <div class="s-field" data-key-for="groq"><span>Groq</span><input id="key-groq" type="password" placeholder="gsk_..." autocomplete="off" /></div>
+        <div class="s-field" data-key-for="custom"><span>Custom</span><input id="key-custom" type="password" placeholder="optional" autocomplete="off" /></div>
+        <div class="s-field" data-key-for="minimax"><span>MiniMax</span><input id="key-minimax" type="password" placeholder="MiniMax API key" autocomplete="off" /></div>
+
+        <div id="minimax-region-settings" class="hidden">
+          <label class="s-label">MiniMax region <span class="s-hint">keys are region-bound — a Global key will 401 against China, and vice versa</span></label>
+          <div class="s-seg" id="minimax-region-seg">
+            <button data-region="global_en">Global</button>
+            <button data-region="cn_zh">China</button>
+          </div>
+        </div>
+
+        <div id="custom-endpoint-settings" class="hidden">
+          <label class="s-label" for="base-url">Custom endpoint <span class="s-hint">OpenAI-compatible chat API</span></label>
+          <div class="s-field"><span>Base URL</span><input id="base-url" type="url" placeholder="http://127.0.0.1:18789/v1" autocomplete="off" spellcheck="false" /></div>
+          <div class="s-help">Your Custom key and LLM requests are sent to this URL. To also use it for speech-to-text, pick Custom on the Audio tab — otherwise transcription uses OpenAI or Groq.</div>
+        </div>
+
+        <!-- publik API: the packaged-build default. Text and buttons are filled by
+             renderPublikBlock() from publik:state so the copy has one source. -->
+        <div id="publik-settings" class="publik-card hidden">
+          <div class="publik-line" id="publik-status-note">Not connected</div>
+          <div class="publik-line warn hidden" id="publik-low-note"></div>
+          <div class="s-note" id="publik-cost-note"></div>
+          <details class="publik-why" id="publik-why">
+            <summary id="publik-why-summary">Why it costs money</summary>
+            <div class="s-note" id="publik-why-text"></div>
+          </details>
+          <div class="s-note" id="publik-data-note"></div>
+          <div class="whisper-actions">
+            <button id="publik-setup" class="s-action hidden">Set up publik API</button>
+            <button id="publik-link" class="s-action primary hidden">Link this computer &amp; pick a plan</button>
+            <button id="publik-add-credit" class="s-action hidden">Add a plan or pack</button>
+            <button id="publik-reconnect" class="s-action hidden">Reconnect</button>
+            <button id="publik-pricing" class="s-action">How pricing works</button>
+            <button id="publik-byo" class="s-action">Use my own key instead</button>
+            <button id="publik-disconnect" class="s-action danger hidden">Disconnect publik API</button>
+          </div>
+        </div>
+        <div class="s-field" data-key-for="ollama"><span>Ollama URL</span><input id="key-ollama" type="text" placeholder="http://localhost:11434" autocomplete="off" /></div>
+        <div class="s-field" data-key-for="deepseek"><span>DeepSeek</span><input id="key-deepseek" type="password" placeholder="sk-..." autocomplete="off" /></div>
+        <div class="s-field" data-key-for="azure"><span>Azure AI Foundry</span><input id="key-azure" type="password" placeholder="azure key or Entra token" autocomplete="off" /></div>
+
+        <div id="azure-endpoint-settings" class="hidden">
+          <label class="s-label" for="azure-endpoint">Azure endpoint <span class="s-hint">Azure OpenAI: https://&lt;resource&gt;.openai.azure.com/openai · AI Foundry: https://&lt;host&gt;.cognitiveservices.azure.com (cue adds /openai/v1)</span></label>
+          <div class="s-field"><span>Endpoint</span><input id="azure-endpoint" type="text" placeholder="https://host.cognitiveservices.azure.com" autocomplete="off" /></div>
+        </div>
+
+        <label class="s-label">Models <span class="s-hint">fast = Smart off · smart = Smart on</span></label>
+        <div class="s-field model-field"><label for="model-fast">Fast</label><div class="model-combobox">
+          <input id="model-fast" type="text" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-haspopup="dialog" aria-expanded="false" aria-controls="model-menu" />
+          <button id="model-fast-toggle" class="model-trigger" type="button" aria-label="Choose Fast model" aria-haspopup="dialog" aria-expanded="false"></button>
+        </div></div>
+        <div class="s-field model-field"><label for="model-smart">Smart</label><div class="model-combobox">
+          <input id="model-smart" type="text" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-haspopup="dialog" aria-expanded="false" aria-controls="model-menu" />
+          <button id="model-smart-toggle" class="model-trigger" type="button" aria-label="Choose Smart model" aria-haspopup="dialog" aria-expanded="false"></button>
+        </div></div>
+        <div class="model-catalog-tools"><button id="models-refresh" class="s-action" type="button">Refresh OpenAI models</button><p id="model-list-status" role="status"></p></div>
+
+        <label class="s-label">Assistant access <span class="s-hint">programs allowed to see what cue is doing</span></label>
+        <div class="s-callers" id="applink-callers"></div>
+
+        <div class="s-status" id="s-status"></div>
+      </div>
+
+      <!-- Tab: Transcription -->
+      <div class="s-body s-tab-pane hidden" data-pane="transcription">
+        <label class="s-label">Speech-to-text provider</label>
+        <div class="s-seg s-seg-wrap" id="stt-provider-seg">
+          <button data-stt-provider="auto">Auto</button>
+          <button data-stt-provider="local">Local</button>
+          <button data-stt-provider="openai">OpenAI</button>
+          <button data-stt-provider="custom">Custom</button>
+        </div>
+        <div class="s-note">Local mode keeps microphone and meeting audio on this computer. It never silently falls back to a cloud transcription provider. Custom sends audio to the Base URL and Custom key set on the API Keys tab (requires both).</div>
+
+        <label class="s-label">Meeting audio <span class="s-hint">transcribe the other side of a call</span></label>
+        <div class="s-seg" id="meeting-audio-seg">
+          <button data-meeting-audio="off">Off</button>
+          <button data-meeting-audio="on">On</button>
+        </div>
+        <div class="s-note" id="meeting-audio-note"></div>
+
+        <div class="whisper-card">
+          <div class="whisper-runtime-row">
+            <span class="s-label">whisper.cpp runtime</span>
+            <span id="whisper-runtime-status" class="whisper-badge">Checking…</span>
+          </div>
+
+          <label class="s-label" for="whisper-model">Local model</label>
+          <select id="whisper-model" class="s-select"></select>
+          <div id="whisper-model-detail" class="s-note"></div>
+
+          <div id="whisper-progress-wrap" class="whisper-progress-wrap hidden">
+            <progress id="whisper-progress" max="100" value="0"></progress>
+            <span id="whisper-progress-label">0%</span>
+          </div>
+
+          <div class="whisper-actions">
+            <button id="whisper-download" class="s-action">Download</button>
+            <button id="whisper-cancel" class="s-action hidden">Cancel</button>
+            <button id="whisper-import" class="s-action">Import…</button>
+            <button id="whisper-delete" class="s-action danger" disabled>Delete</button>
+          </div>
+
+          <div class="s-field">
+            <span>Language</span>
+            <select id="whisper-language" class="s-select compact">
+              <option value="auto">Auto-detect</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <div class="s-field">
+            <span>CPU threads</span>
+            <input id="whisper-threads" type="number" min="0" max="64" step="1" value="0" />
+          </div>
+          <div class="s-note">Use 0 for whisper.cpp's default. English-only models always use English regardless of the language setting.</div>
+        </div>
+
+        <div class="s-status" id="whisper-status"></div>
+
+        <label class="s-label">Meeting slides <span class="s-hint">opt-in · auto-captions while listening · memory-only</span></label>
+        <div class="s-field"><span>Track slides</span><input id="slides-enabled" type="checkbox" style="width:auto;" /></div>
+        <div class="s-field"><span>Check every (ms)</span><input id="slides-interval" type="number" min="1500" max="15000" step="500" value="3000" /></div>
+        <div class="s-note">Captures a tiny hash every few seconds, captions only on stable change with your chat model. No images stored; clear with transcript.</div>
+      </div>
+
+      <!-- Tab: Style -->
+      <div class="s-body s-tab-pane hidden" data-pane="style">
+        <label class="s-label">AI rules <span class="s-hint">how the AI should write its responses</span></label>
+        <textarea id="ai-rules" rows="10" spellcheck="false" maxlength="2000" placeholder="e.g.
+- Never use em-dashes.
+- Reply in 2-3 short bullet points.
+- Use a casual, first-person tone.
+- Avoid jargon; explain technical terms.
+- Don&#39;t start with &quot;I&quot;.
+"></textarea>
+        <div class="s-counter"><span id="ai-rules-count">0</span> / 2000</div>
+        <div class="s-hint-block">
+          These rules tell cue <strong>how</strong> to write, not <strong>what</strong> to say. Use one imperative sentence per line (e.g. <em>Never use em-dashes.</em>). They apply to every mode except coding-problem solves (LeetCode), which stays strict. Stored locally; never sent anywhere except the AI provider when cue answers a question.
+        </div>
+      </div>
+
+      <!-- Tab: Appearance -->
+      <div class="s-body s-tab-pane hidden" data-pane="appearance">
+        <label class="s-label" for="s-opacity-slider">Opacity <span class="s-hint">how see-through the overlay is</span></label>
+        <div class="s-opacity-row">
+          <input type="range" id="s-opacity-slider" min="20" max="100" step="1" value="100" />
+          <span id="s-opacity-value">100%</span>
+        </div>
+        <div id="spotlight-settings" class="hidden">
+          <label class="s-label">Spotlight</label>
+          <button id="spotlight-refresh" class="s-action" type="button">Refresh Cue’s Spotlight listing</button>
+          <p id="spotlight-status" class="s-note" role="status">Cue registers itself with macOS after installation and updates.</p>
+        </div>
+      </div>
+
+
+    </div>
+  </div>
+
+  <!-- First-run tutorial / walkthrough -->
+  <div id="onboard-scrim" class="hidden">
+    <div id="onboard" class="glass">
+      <div class="ob-dots" id="ob-dots"></div>
+      <div class="ob-icon" id="ob-icon"></div>
+      <div class="ob-title" id="ob-title"></div>
+      <div class="ob-body" id="ob-body"></div>
+      <div class="ob-buttons" id="ob-buttons"></div>
+      <div class="ob-actions">
+        <button id="ob-skip" class="ob-ghost">Skip</button>
+        <div class="spacer"></div>
+        <button id="ob-back" class="ob-ghost">Back</button>
+        <button id="ob-next" class="ob-primary">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assistant access request. Shown in-window rather than as a native dialog:
+       cue hides its dock icon, so an OS panel never comes forward and cannot be
+       clicked. -->
+  <div id="consent-scrim" class="hidden">
+    <div id="consent" class="glass">
+      <div class="cs-title" id="cs-title"></div>
+      <div class="cs-body" id="cs-body"></div>
+      <div class="cs-actions">
+        <button id="cs-deny" class="ob-ghost">Don’t allow</button>
+        <button id="cs-allow" class="ob-primary">Allow</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="icons.js"></script>
+  <script src="protection-toggle.js"></script>
+  <script src="window-interactions.js"></script>
+  <script src="window-zoom.js"></script>
+  <script src="session-history.js"></script>
+  <script src="../src/model-preferences.js"></script>
+  <script src="model-picker.js"></script>
+  <script src="meeting-modes.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
+const platform = process.platform;
+
+contextBridge.exposeInMainWorld('cue', {
+  platform,
+  settingsGet: () => ipcRenderer.invoke('settings:get'),
+  settingsSet: (patch) => ipcRenderer.invoke('settings:set', patch),
+  modelChoices: provider => ipcRenderer.invoke('models:choices', provider),
+  modelRemember: (provider, id) => ipcRenderer.invoke('models:remember', provider, id),
+  modelForget: (provider, id) => ipcRenderer.invoke('models:forget', provider, id),
+  modelCatalog: (provider, force = false) => ipcRenderer.invoke('models:catalog', provider, force),
+  meetingModesState: () => ipcRenderer.invoke('modes:state'),
+  meetingModesMutate: (action, payload) => ipcRenderer.invoke('modes:mutate', action, payload),
+  meetingModePickFiles: id => ipcRenderer.invoke('modes:pick-files', id),
+  meetingModeDropFiles: (id, files) => ipcRenderer.invoke('modes:attach-paths', id, Array.from(files).map(file => webUtils.getPathForFile(file))),
+  whisperModels: () => ipcRenderer.invoke('whisper:models'),
+  whisperModelDownload: (modelId) => ipcRenderer.invoke('whisper:model-download', modelId),
+  whisperModelCancel: (modelId) => ipcRenderer.invoke('whisper:model-cancel', modelId),
+  whisperModelDelete: (modelId) => ipcRenderer.invoke('whisper:model-delete', modelId),
+  whisperModelImport: (modelId) => ipcRenderer.invoke('whisper:model-import', modelId),
+  platformInfo: () => ipcRenderer.invoke('platform:info'),
+  protectionGet: () => ipcRenderer.invoke('protection:get'),
+  protectionSet: (enabled) => ipcRenderer.invoke('protection:set', enabled),
+  ask: (payload) => ipcRenderer.send('ask', payload),
+  captureToggle: () => ipcRenderer.invoke('capture:toggle').catch((err) => {
+    console.error('[cue] captureToggle error', err);
+    return false;
+  }),
+  captureState: () => ipcRenderer.invoke('capture:state'),
+  micPcm: (arrayBuffer) => ipcRenderer.send('mic:pcm', arrayBuffer),
+  systemPcm: (arrayBuffer) => ipcRenderer.send('system:pcm', arrayBuffer),
+  setIgnoreMouse: (v) => ipcRenderer.send('mouse:ignore', v),
+  windowInteractionStart: (gesture) => ipcRenderer.send('window:interaction-start', gesture),
+  windowInteractionEnd: () => ipcRenderer.send('window:interaction-end'),
+  windowEnsureVisible: () => ipcRenderer.send('window:ensure-visible'),
+  discoveryRefresh: () => ipcRenderer.invoke('discovery:refresh'),
+  windowZoomGet: () => ipcRenderer.invoke('window:zoom-get'),
+  sessionsList: () => ipcRenderer.invoke('sessions:list'),
+  sessionGet: id => ipcRenderer.invoke('sessions:get', id),
+  clearTranscript: () => ipcRenderer.invoke('transcript:clear'),
+  slidesList: () => ipcRenderer.invoke('slides:list'),
+  slidesState: () => ipcRenderer.invoke('slides:state'),
+  slidesClear: () => ipcRenderer.invoke('slides:clear'),
+  openPane: (url) => ipcRenderer.send('open-pane', url),
+  publikState: () => ipcRenderer.invoke('publik:state'),
+  publikAcceptDisclosure: () => ipcRenderer.invoke('publik:accept-disclosure'),
+  publikReconnect: () => ipcRenderer.invoke('publik:reconnect'),
+  publikRefresh: () => ipcRenderer.invoke('publik:refresh'),
+  publikDisconnect: () => ipcRenderer.invoke('publik:disconnect'),
+  publikCardSeen: () => ipcRenderer.invoke('publik:card-seen'),
+  publikOpen: (url) => ipcRenderer.send('publik:open', url),
+  appLinkState: () => ipcRenderer.invoke('applink:state'),
+  appLinkRevoke: (callerId) => ipcRenderer.invoke('applink:revoke', callerId),
+  appLinkConsentRespond: (id, allowed) => ipcRenderer.send('applink:consent-response', { id, allowed }),
+  pickProfileDocument: () => ipcRenderer.invoke('profile:pickDocument'),
+  quit: () => ipcRenderer.send('app:quit'),
+  permissionsCheck: () => ipcRenderer.invoke('permissions:check'),
+  permissionsShow: () => ipcRenderer.send('permissions:show'),
+  permissionsRequest: () => ipcRenderer.invoke('permissions:request'),
+  permissionsContinue: () => ipcRenderer.send('permissions:continue'),
+  restart: () => ipcRenderer.send('app:restart'),
+  log: (msg) => ipcRenderer.send('log', msg),
+  on: (channel, cb) => {
+    const allowed = ['capture:state', 'llm:start', 'llm:token', 'llm:done', 'llm:error', 'status', 'transcript', 'transcript:restore', 'stt:interim', 'stt:final', 'stt:status', 'vad:state', 'applink:consent-request', 'hide:toggle', 'whisper:download-progress', 'whisper:models-changed', 'publik:state', 'slides:update'];
+    if (!['permissions:changed', 'protection:changed', 'window:zoom-changed', 'ui:reveal', 'ui:open-settings', 'ui:open-sessions', 'models:changed', 'modes:changed'].includes(channel) && !allowed.includes(channel)) return;
+    ipcRenderer.on(channel, (_e, data) => cb(data));
+  }
+});
