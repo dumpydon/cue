@@ -66,10 +66,11 @@ for (const [name, Ctor] of [['Deepgram', DeepgramStreamingSTT], ['OpenAI Realtim
     await stt.connect();
     const old = sockets[0];
     old.open();
-    assert.deepEqual(statuses, ['connected']);
+    const openedStatus = name === 'OpenAI Realtime' ? 'connecting' : 'connected';
+    assert.deepEqual(statuses, [openedStatus]);
     stt.disconnect();
     old.emit('close', 1006); // late event from the dead socket
-    assert.deepEqual(statuses, ['connected'], 'stale close must not report disconnected for the replacement');
+    assert.deepEqual(statuses, [openedStatus], 'stale close must not report disconnected for the replacement');
   });
 }
 

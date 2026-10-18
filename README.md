@@ -194,6 +194,8 @@ Open **Settings → Audio**, choose **Local**, and download a model. `base.en` i
 
 Local mode is independent from the chat provider, so you can use local speech-to-text with OpenAI, Anthropic, or Gemini chat. The selected model loads once when listening starts, serves both the **You** and **Them** channels, and unloads only after queued speech has been transcribed when listening stops.
 
+Live speech is accumulated separately for **You** and **Them**. OpenAI streaming audio is committed at speech boundaries so completed sentences enter saved history; Recap and assistant actions also include speech still being transcribed. Stopping flushes the final audio buffer and waits briefly for the final transcript. Changing audio providers or capture settings ends the current session so the old connection is not left running. Local model and CPU settings apply only when **Local** is selected.
+
 - Audio inference stays on your computer and audio is never written to a temporary file.
 - Model files are downloaded only when you ask, support cancel/resume, and are checked against pinned byte counts and SHA-256 hashes.
 - Local mode never silently sends audio to a cloud fallback. A local failure is reported without sending the audio elsewhere.
@@ -248,7 +250,7 @@ cue is an [Electron](https://www.electronjs.org/) app. Everything runs locally e
 **The three inputs are kept completely separate:**
 - **Screen** — captured with Electron's `desktopCapturer` (full-resolution screenshots, taken only when a feature needs one).
 - **Your mic ("You")** — `getUserMedia` → downsampled to 16 kHz audio → transcribed.
-- **Meeting audio ("Them")** — `getDisplayMedia` loopback capture of your system's output audio, kept on its own channel so cue knows *who* said what. **Windows only** — Chromium doesn't implement loopback capture elsewhere, so on macOS this stream comes back video-only and the channel stays silent.
+- **Meeting audio ("Them")** — `getDisplayMedia` loopback capture of system output, kept separate from your microphone. Supported on Windows and macOS 14.4+. Enable **Meeting audio** on macOS; the display track stays alive to sustain the loopback session, while only audio is passed to transcription.
 
 Both audio streams are transcribed by the independently selected speech provider (local whisper.cpp, Deepgram, OpenAI, or Gemini) and fed, with an optional screenshot, to your chat model. Responses **stream** into the panel word-by-word.
 

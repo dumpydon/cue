@@ -5,18 +5,25 @@
 class CueAudioProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
-    this._bufferSize = 4096; // accumulate before sending (matches old ScriptProcessor)
+    this._bufferSize = 960; // 60ms at 16kHz; responsive without word-sized transcription turns
     this._buffer = new Float32Array(this._bufferSize);
     this._writeIndex = 0;
+    this.port.onmessage = event => {
+      if (event.data?.type !== 'flush') return;
+      if (this._writeIndex) this._flush();
+      this.port.postMessage({ type: 'flushed' });
+    };
   }
 
   process(inputs, _outputs, _parameters) {
     const input = inputs[0];
     if (!input || !input[0]) return true;
 
-    const channelData = input[0]; // mono
+    const channelData = input[0];
     for (let i = 0; i < channelData.length; i++) {
-      this._buffer[this._writeIndex++] = channelData[i];
+      let sample = 0;
+      for (const channel of input) sample += channel[i] || 0;
+      this._buffer[this._writeIndex++] = sample / input.length;
       if (this._writeIndex >= this._bufferSize) {
         this._flush();
       }

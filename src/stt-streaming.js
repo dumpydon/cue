@@ -8,6 +8,7 @@
 const { looksLikeHallucination, transcribeGemini, buildVocabPrompt } = require('./stt');
 const { pcmToWav } = require('./wav');
 const { GEMINI_TRANSCRIBE_LIVE_MODEL } = require('./llm');
+const { AdaptiveVAD } = require('./vad');
 
 // ============================================================================
 // OpenAI Realtime Transcription Session (WebSocket)
@@ -32,11 +33,22 @@ class OpenAIRealtimeSTT {
     this._pendingAudio = [];
     this._sessionReady = false;
     this._closedByUs = false; // disconnect() was called: ignore the socket's dying breaths, never reconnect
+    this._items = new Map();
+    this._finished = new Set();
+    this._audioBytes = 0;
+    this._hasSpeech = false;
+    this._pendingCommits = 0;
+    this._stopping = false;
+    this._textCommitTimer = null;
+    this._vad = new AdaptiveVAD({ silenceFrames: 24,
+      onSpeechStart: () => { this._hasSpeech = true; }, onSpeechEnd: () => this.commit() });
   }
 
   async connect() {
     if (this.ws && this.connected) return;
     this._closedByUs = false;
+    this._stopping = false;
+    this._sessionReady = false;
 
     try {
       const WebSocket = require('ws');
@@ -54,8 +66,7 @@ class OpenAIRealtimeSTT {
       ws.on('open', () => {
         if (this.ws !== ws) return; // superseded by a later connect()/disconnect()
         this.connected = true;
-        this._reconnectAttempts = 0;
-        this.onStatusChange('connected');
+        this.onStatusChange('connecting');
 
         // Configure the transcription session (GA format)
         this._sendEvent({
@@ -68,7 +79,8 @@ class OpenAIRealtimeSTT {
                 transcription: {
                   model: this.model,
                   language: 'en'
-                }
+                },
+                turn_detection: null
               }
             }
           }
@@ -90,7 +102,9 @@ class OpenAIRealtimeSTT {
         this.connected = false;
         this._sessionReady = false;
         this.onStatusChange('disconnected');
-        if (code !== 1000 && !this.reconnecting && !this._closedByUs) {
+        this._flushRecognized();
+        this._audioBytes = 0; this._hasSpeech = false; this._vad.reset();
+        if (!this.reconnecting && !this._closedByUs && !this._stopping) {
           this._attemptReconnect();
         }
       });
@@ -111,21 +125,36 @@ class OpenAIRealtimeSTT {
   _handleEvent(event) {
     switch (event.type) {
       case 'session.created':
+        break; // Do not send PCM until our transcription configuration is acknowledged.
       case 'session.updated':
         this._sessionReady = true;
+        this._reconnectAttempts = 0;
+        this.onStatusChange('connected');
         this._flushPendingAudio();
         break;
 
       case 'conversation.item.input_audio_transcription.delta':
-        if (event.delta) {
-          this.onInterim(event.delta);
+        if (typeof event.delta === 'string' && !this._finished.has(event.item_id)) {
+          const item = this._item(event.item_id);
+          if (!item.done) item.text += event.delta;
+          this._renderInterim();
+          this._armTextCommit();
         }
         break;
 
       case 'conversation.item.input_audio_transcription.completed':
-        if (event.transcript && event.transcript.trim()) {
-          this.onTranscript(event.transcript.trim());
+        if (!this._finished.has(event.item_id)) {
+          const item = this._item(event.item_id);
+          item.text = typeof event.transcript === 'string' ? event.transcript.trim() : item.text;
+          item.done = true;
+          this._pendingCommits = Math.max(0, this._pendingCommits - 1);
+          this._drainCompleted();
+          this._armTextCommit();
         }
+        break;
+
+      case 'conversation.item.input_audio_transcription.failed':
+        this.onError({ provider: 'openai-realtime', message: event.error?.message || 'Speech transcription failed', status: event.error?.code });
         break;
 
       case 'input_audio_buffer.speech_started':
@@ -135,6 +164,7 @@ class OpenAIRealtimeSTT {
         break;
 
       case 'input_audio_buffer.committed':
+        if (!this._finished.has(event.item_id)) this._item(event.item_id).committed = true;
         break;
 
       case 'error':
@@ -147,11 +177,75 @@ class OpenAIRealtimeSTT {
     }
   }
 
+  _item(id = 'current') {
+    if (!this._items.has(id)) this._items.set(id, { text: '', done: false, committed: false });
+    return this._items.get(id);
+  }
+
+  _renderInterim() {
+    this.onInterim([...this._items.values()].map(item => item.text).filter(Boolean).join(' '));
+  }
+
+  _drainCompleted() {
+    for (const [id, item] of this._items) {
+      if (!item.done) break; // Completion events may arrive out of order.
+      this._items.delete(id); this._finished.add(id);
+      if (this._finished.size > 256) this._finished.delete(this._finished.values().next().value);
+      if (item.text.trim()) this.onTranscript(item.text.trim());
+    }
+    this._renderInterim();
+  }
+
+  _flushRecognized() {
+    clearTimeout(this._textCommitTimer); this._textCommitTimer = null;
+    for (const [id, item] of this._items) {
+      if (item.text.trim()) this.onTranscript(item.text.trim());
+      this._finished.add(id);
+    }
+    while (this._finished.size > 256) this._finished.delete(this._finished.values().next().value);
+    this._items.clear(); this._pendingCommits = 0;
+    this.onInterim('');
+  }
+
+  _armTextCommit() {
+    clearTimeout(this._textCommitTimer); this._textCommitTimer = null;
+    if (this._stopping || this._pendingCommits || ![...this._items.values()].some(item => !item.committed && item.text.trim())) return;
+    // Recognition is also evidence of quiet speech that energy-based VAD can
+    // miss. Finalize after a pause in words instead of waiting indefinitely.
+    this._textCommitTimer = setTimeout(() => {
+      this._textCommitTimer = null;
+      if (this._vad.state === 'silence') this.commit();
+    }, 1200);
+  }
+
+  commit() {
+    const recognized = !this._pendingCommits && [...this._items.values()].some(item => !item.committed && item.text.trim());
+    if (!this._sessionReady || (!this._hasSpeech && !recognized) || this._audioBytes < 3840) return false;
+    clearTimeout(this._textCommitTimer); this._textCommitTimer = null;
+    this._sendEvent({ type: 'input_audio_buffer.commit' });
+    this._pendingCommits++;
+    this._audioBytes = 0; this._hasSpeech = false;
+    this._vad.reset();
+    return true;
+  }
+
+  async stop() {
+    this._stopping = true;
+    this.commit();
+    const deadline = Date.now() + 2000;
+    while (this.connected && this._pendingCommits && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    this.disconnect();
+  }
+
   sendAudio(pcmBuffer) {
+    if (this._closedByUs || this._stopping) return;
     if (!this.connected || !this._sessionReady) {
       // Buffer audio until session is ready (max 5 seconds worth)
       this._pendingAudio.push(pcmBuffer);
-      if (this._pendingAudio.length > 80) this._pendingAudio.shift();
+      let bytes = this._pendingAudio.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+      while (bytes > 16000 * 2 * 5) bytes -= this._pendingAudio.shift().byteLength;
       return;
     }
 
@@ -162,6 +256,12 @@ class OpenAIRealtimeSTT {
       type: 'input_audio_buffer.append',
       audio: b64
     });
+    this._audioBytes += pcmBuffer.byteLength;
+    this._vad.processChunk(Buffer.from(pcmBuffer));
+    // Bound long uninterrupted speech and silent buffers without cutting every word.
+    if (this._audioBytes >= 16000 * 2 * 20) {
+      if (!this.commit()) { this._sendEvent({ type: 'input_audio_buffer.clear' }); this._audioBytes = 0; }
+    }
   }
 
   _resample16to24(pcm16kHz) {
@@ -184,12 +284,7 @@ class OpenAIRealtimeSTT {
   _flushPendingAudio() {
     while (this._pendingAudio.length > 0) {
       const chunk = this._pendingAudio.shift();
-      const resampled = this._resample16to24(Buffer.from(chunk));
-      const b64 = resampled.toString('base64');
-      this._sendEvent({
-        type: 'input_audio_buffer.append',
-        audio: b64
-      });
+      this.sendAudio(chunk);
     }
   }
 
@@ -216,6 +311,8 @@ class OpenAIRealtimeSTT {
 
   disconnect() {
     this._closedByUs = true;
+    this._flushRecognized();
+    this._audioBytes = 0; this._hasSpeech = false; this._vad.reset();
     if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null; }
     this.reconnecting = false;
     this._sessionReady = false;

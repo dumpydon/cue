@@ -164,21 +164,6 @@
     if (v) busyFailsafe = setTimeout(() => { busy = false; $('#send-btn').classList.toggle('busy', false); }, 40000);
   }
 
-  // ---- transcript helpers ------------------------------------------------
-  // NOTE: The old transcript-list element was renamed to ts-list.
-  // These helpers are now deprecated but kept for compatibility.
-  // The main sidebar uses appendTranscriptHistoryTurn() instead.
-  let transcriptInterimEl = null;
-
-  // FIX #1: Updated to use ts-list instead of non-existent transcript-list
-
-  function clearTranscriptInterim() {
-    if (transcriptInterimEl) {
-      transcriptInterimEl.remove();
-      transcriptInterimEl = null;
-    }
-  }
-
   // ---- toast helper ------------------------------------------------------
   // FIX #7: Toast queue system — ensures latest toast wins cleanly without stacking
   let toastTimer = null;
@@ -445,7 +430,6 @@
     clearTimeout(softClearTimer);
     clearTimeout(questionFinalizeTimer);
     clearTimeout(sttFillTimer);
-    clearInputInterim(); // FIX #5: Clear interim when clearing input
     syncPlaceholder();
     updateSendButtonState(); // FIX #9
     
@@ -477,7 +461,6 @@
     const currentValue = input.value;
     
     // FIX #5: Clear interim text when user starts typing
-    clearInputInterim();
     
     // FIX #6: Only detach from STT mode if edit is substantial
     // Minor corrections (typo fixes, small additions) should keep STT mode
@@ -673,13 +656,13 @@
       if (turningOn) {
         // A cancelled loopback grant must not prevent microphone listening.
         try { await startSystemAudio(); } catch (_) { /* handled inside startSystemAudio */ }
-      }
+      } else await flushCaptureAudio();
       const active = await cue.captureToggle();
       if (turningOn && !active) stopSystemAudio();
       return active;
     } finally { listeningPending = false; $('#stop-btn').disabled = false; }
   }
-  window.CueListening = { toggle: toggleListening };
+  window.CueListening = { toggle: toggleListening, flush: flushCaptureAudio };
   $('#stop-btn').addEventListener('click', () => { void toggleListening(); });
 
   // Transcript toggle removed — sidebar now auto-opens with listening
@@ -690,8 +673,7 @@
     clearTranscriptBtn.addEventListener('click', async () => {
       await cue.clearTranscript();
       // Also clear the floating interim bar
-      if (interimEl) { interimEl.textContent = ''; interimEl.classList.remove('show'); }
-      transcriptInterimEl = null;
+      clearLiveSpeech();
       clearTranscriptSidebar();
       // Only a question auto-filled from the transcript goes; anything the user typed stays.
       if (inputFromSTT) hardClearSTTFill();
@@ -707,6 +689,22 @@
   // the "you" channel at once — every slice of speech arrives twice, which the
   // transcriber can't make sense of — and the orphaned one keeps the mic hot.
   let micGen = 0;
+  function attachAudioWorklet(node, sendPCM) {
+    node.port.onmessage = ({ data }) => {
+      if (data instanceof ArrayBuffer) sendPCM(data);
+      else if (data?.type === 'flushed') node._flushResolve?.();
+    };
+  }
+  function flushAudioWorklet(node) {
+    if (!node || node._legacy) return Promise.resolve();
+    return new Promise(resolve => {
+      const finish = () => { clearTimeout(timer); node._flushResolve = null; resolve(); };
+      const timer = setTimeout(finish, 250);
+      node._flushResolve = finish;
+      try { node.port.postMessage({ type: 'flush' }); } catch (_) { finish(); }
+    });
+  }
+  function flushCaptureAudio() { return Promise.all([flushAudioWorklet(micWorklet), flushAudioWorklet(sysWorklet)]); }
   async function startMic() {
     if (micStream) return;
     const gen = ++micGen;
@@ -740,19 +738,22 @@
       }
       cue.log('mic stream started: track=' + (track.label || '(no label — permission may be stale)') + ' muted=' + track.muted);
       audioCtx = new AudioContext({ sampleRate: 16000 });
+      await audioCtx.resume();
+      if (gen !== micGen) return;
 
       // Use AudioWorklet for low-latency, off-main-thread processing
       try {
         await audioCtx.audioWorklet.addModule('audio-worklet-processor.js');
+        if (gen !== micGen) return;
         const source = audioCtx.createMediaStreamSource(micStream);
         micWorklet = new AudioWorkletNode(audioCtx, 'cue-audio-processor');
-        micWorklet.port.onmessage = (e) => {
-          cue.micPcm(e.data);
-        };
+        attachAudioWorklet(micWorklet, data => cue.micPcm(data));
         source.connect(micWorklet);
-        // Don't connect to destination — we just capture, don't play
+        const sink = audioCtx.createGain(); sink.gain.value = 0;
+        micWorklet.connect(sink); sink.connect(audioCtx.destination); micWorklet._sink = sink;
         cue.log('mic AudioWorklet processor attached');
       } catch (workletErr) {
+        if (gen !== micGen) return;
         // Fallback to ScriptProcessor if AudioWorklet fails (shouldn't happen in Electron 33+)
         cue.log('AudioWorklet failed, falling back to ScriptProcessor: ' + workletErr.message);
         const micNode = audioCtx.createMediaStreamSource(micStream);
@@ -768,6 +769,7 @@
         micWorklet = { _legacy: true, proc: micProc, node: micNode, sink };
       }
     } catch (err) {
+      if (gen !== micGen) return;
       const message = err && err.message ? err.message : String(err);
       const name = err && err.name;
       cue.log('mic error: ' + name + ' — ' + message);
@@ -795,6 +797,8 @@
         micWorklet.proc.disconnect(); micWorklet.proc.onaudioprocess = null;
         micWorklet.node.disconnect(); micWorklet.sink.disconnect();
       } else {
+        micWorklet.port.onmessage = null;
+        micWorklet._sink?.disconnect();
         micWorklet.disconnect();
       }
       micWorklet = null;
@@ -805,6 +809,7 @@
 
   // ---- capture: system/meeting audio (getDisplayMedia loopback, in cue's process) ----
   let sysStream = null, sysCtx = null, sysWorklet = null, sysStarting = false;
+  let sysGen = 0;
   async function startSystemAudio() {
     // Called both from the stop-btn click (fresh user gesture for getDisplayMedia) and from the
     // capture:state handler. getDisplayMedia is async, so `if (sysStream) return` alone loses the
@@ -818,16 +823,18 @@
       showStatus('Meeting audio is off, so cue stays invisible. macOS shows a screen-recording indicator whenever an app captures system audio; turn Meeting audio on in Settings \u203a Audio if you want the other side transcribed.');
       return;
     }
-    sysStarting = true;
     if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
       cue.log('system audio unavailable: getDisplayMedia not supported');
       showStatus('Meeting audio capture is not available on this device build.');
       return;
     }
+    sysStarting = true;
+    const gen = ++sysGen;
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-
-      stream.getVideoTracks().forEach((t) => t.stop()); // we only want the audio
+      if (gen !== sysGen) { stream.getTracks().forEach(track => track.stop()); return; }
+      // Keep the display track alive: on macOS it owns the shared loopback
+      // capture session. Only its audio track enters the transcription graph.
       const tracks = stream.getAudioTracks();
       if (!tracks.length) {
         cue.log('system audio: no loopback track on this platform');
@@ -839,18 +846,22 @@
       }
       sysStream = stream;
       sysCtx = new AudioContext({ sampleRate: 16000 });
+      await sysCtx.resume();
+      if (gen !== sysGen) return;
 
       // Use AudioWorklet for system audio too
       try {
         await sysCtx.audioWorklet.addModule('audio-worklet-processor.js');
+        if (gen !== sysGen) return;
         const source = sysCtx.createMediaStreamSource(new MediaStream(tracks));
         sysWorklet = new AudioWorkletNode(sysCtx, 'cue-audio-processor');
-        sysWorklet.port.onmessage = (e) => {
-          cue.systemPcm(e.data);
-        };
+        attachAudioWorklet(sysWorklet, data => cue.systemPcm(data));
         source.connect(sysWorklet);
+        const sink = sysCtx.createGain(); sink.gain.value = 0;
+        sysWorklet.connect(sink); sink.connect(sysCtx.destination); sysWorklet._sink = sink;
         cue.log('system audio: AudioWorklet capturing loopback');
       } catch (workletErr) {
+        if (gen !== sysGen) return;
         // Fallback to ScriptProcessor
         cue.log('system audio AudioWorklet failed, using ScriptProcessor: ' + workletErr.message);
         const sysNode = sysCtx.createMediaStreamSource(new MediaStream(tracks));
@@ -866,19 +877,23 @@
         sysWorklet = { _legacy: true, proc: sysProc, node: sysNode, sink };
       }
     } catch (err) {
+      if (gen !== sysGen) return;
       const message = err && err.message ? err.message : String(err);
       cue.log('system audio error: ' + message);
       showStatus('Meeting audio could not be started. Grant screen/audio access to cue and try again.');
     } finally {
-      sysStarting = false;
+      if (gen === sysGen) sysStarting = false;
     }
   }
   function stopSystemAudio() {
+    sysGen++; sysStarting = false;
     if (sysWorklet) {
       if (sysWorklet._legacy) {
         sysWorklet.proc.disconnect(); sysWorklet.proc.onaudioprocess = null;
         sysWorklet.node.disconnect(); sysWorklet.sink.disconnect();
       } else {
+        sysWorklet.port.onmessage = null;
+        sysWorklet._sink?.disconnect();
         sysWorklet.disconnect();
       }
       sysWorklet = null;
@@ -930,7 +945,7 @@
   }
 
   // ---- transcript history sidebar (hidden by default, manual toggle) ----
-  let tsSidebarInterimEl = null;
+  const tsSidebarInterim = { you: null, them: null };
   let sidebarOpen = false;
   // Track last committed row per channel — all chunks from same speaker go in one row
   const tsLastRow = { you: null, them: null };
@@ -1006,13 +1021,17 @@
   function appendTranscriptHistoryTurn(channel, text, isInterim) {
     const list = document.getElementById('ts-list');
     if (!list) return;
+    if (isInterim && !text.trim()) {
+      tsSidebarInterim[channel]?.remove(); tsSidebarInterim[channel] = null; return;
+    }
 
     // Remove placeholder on first real turn
     const ph = list.querySelector('.ts-placeholder');
     if (ph) ph.remove();
 
     if (isInterim) {
-      // Update the single floating interim row
+      let tsSidebarInterimEl = tsSidebarInterim[channel];
+      // Each speaker owns an independent interim row.
       if (!tsSidebarInterimEl) {
         tsSidebarInterimEl = document.createElement('div');
         tsSidebarInterimEl.className = 'ts-turn ts-' + channel + ' ts-interim-row';
@@ -1024,11 +1043,12 @@
         tsSidebarInterimEl.appendChild(chLabel);
         tsSidebarInterimEl.appendChild(txt);
         list.appendChild(tsSidebarInterimEl);
+        tsSidebarInterim[channel] = tsSidebarInterimEl;
       }
       tsSidebarInterimEl.querySelector('.ts-text').textContent = text;
     } else {
       // Remove interim row
-      if (tsSidebarInterimEl) { tsSidebarInterimEl.remove(); tsSidebarInterimEl = null; }
+      if (tsSidebarInterim[channel]) { tsSidebarInterim[channel].remove(); tsSidebarInterim[channel] = null; }
 
       const existingRow = tsLastRow[channel];
       const useExisting = existingRow && existingRow.isConnected;
@@ -1074,7 +1094,7 @@
   function clearTranscriptSidebar() {
     const list = document.getElementById('ts-list');
     if (list) list.innerHTML = '<div class="ts-placeholder">Conversation history will appear here when listening.</div>';
-    tsSidebarInterimEl = null;
+    tsSidebarInterim.you = null; tsSidebarInterim.them = null;
     tsLastRow.you = null; tsLastRow.them = null;
     clearTimeout(tsRowTimer.you); clearTimeout(tsRowTimer.them);
   }
@@ -1095,10 +1115,7 @@
       stopMic();
       stopSystemAudio();
       // FIX #2: Clear interim element when capture stops
-      if (interimEl) {
-        interimEl.textContent = '';
-        interimEl.classList.remove('show');
-      }
+      clearLiveSpeech();
       // Don't auto-close sidebar — let user keep it open if they want
     }
     if (active && mode === 'local') setSttState('local');
@@ -1107,6 +1124,16 @@
 
   // ---- real-time transcript display (interim + final) ----
   let interimEl = null;
+  const interimText = { you: '', them: '' };
+  function renderLiveSpeech() {
+    const text = ['them', 'you'].filter(channel => interimText[channel]).map(channel => (channel === 'them' ? 'Them: ' : 'You: ') + interimText[channel]).join('\n');
+    const el = getOrCreateInterimEl(); el.textContent = text; el.classList.toggle('show', !!text);
+  }
+  function clearLiveSpeech() {
+    interimText.you = ''; interimText.them = '';
+    if (interimEl) { interimEl.textContent = ''; interimEl.classList.remove('show'); }
+    for (const channel of ['you', 'them']) appendTranscriptHistoryTurn(channel, '', true);
+  }
   function getOrCreateInterimEl() {
     if (!interimEl) {
       interimEl = document.createElement('div');
@@ -1124,45 +1151,19 @@
     }
     return interimEl;
   }
-  // FIX #12: Show interim text in input box (grayed/italic) before final arrives
-  let inputInterimEl = null;
-  function showInterimInInput(text) {
-    if (!inputInterimEl) {
-      inputInterimEl = document.createElement('span');
-      inputInterimEl.className = 'input-interim';
-      // FIX #2: Insert into composer (not input-area) for correct positioning
-      composer.appendChild(inputInterimEl);
-    }
-    inputInterimEl.textContent = text;
-    inputInterimEl.style.display = text ? 'block' : 'none';
-  }
-  function clearInputInterim() {
-    if (inputInterimEl) {
-      inputInterimEl.textContent = '';
-      inputInterimEl.style.display = 'none';
-    }
-  }
-  
   cue.on('stt:interim', ({ channel, text }) => {
-    setLiveDotState('transcribing');
-    const el = getOrCreateInterimEl();
-    const label = channel === 'them' ? 'Them' : 'You';
-    el.textContent = `${label}: ${text}`;
-    el.classList.add('show');
-    appendTranscriptHistoryTurn(channel, text, true); // update sidebar interim
-    
-    // FIX #12: Show interviewer's interim speech in input area
-    if (channel === 'them' && !input.value.trim()) {
-      showInterimInInput(text);
-    }
+    if (!(channel in interimText)) return;
+    interimText[channel] = text.trim();
+    setLiveDotState(Object.values(interimText).some(Boolean) ? 'transcribing' : 'idle');
+    renderLiveSpeech();
+    appendTranscriptHistoryTurn(channel, text, true);
   });
-  cue.on('stt:final', ({ channel, text }) => {
-    setLiveDotState('idle');
-    // Clear interim when we get a final
-    if (interimEl) { interimEl.textContent = ''; interimEl.classList.remove('show'); }
-    clearTranscriptInterim();
-    clearInputInterim(); // FIX #12: Clear interim text from input area
-    // sidebar: the final turn is added via the 'transcript' event below
+  cue.on('stt:final', ({ channel }) => {
+    if (!(channel in interimText)) return;
+    interimText[channel] = '';
+    renderLiveSpeech();
+    appendTranscriptHistoryTurn(channel, '', true);
+    setLiveDotState(Object.values(interimText).some(Boolean) ? 'transcribing' : 'idle');
   });
   cue.on('stt:status', ({ channel, status, provider }) => {
     cue.log(`[stt] ${provider || channel || 'unknown'} ${status}`);
@@ -1184,6 +1185,11 @@
       return;
     }
     if (status === 'connected') setSttState('streaming');
+    else if (status === 'connecting' || status === 'disconnected') setSttState('connecting');
+    else if (status === 'batch') setSttState('batch');
+    else if (status === 'error') setSttState('error');
+    else if (status === 'stopping') setSttState('stopping');
+    else if (status === 'off') setSttState('disconnected');
   });
   cue.on('vad:state', ({ channel, speaking }) => {
     setLiveDotState(speaking ? 'speaking' : 'idle');

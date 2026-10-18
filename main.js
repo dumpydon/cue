@@ -133,6 +133,11 @@ const state = { capturing: false, busy: false, transcribing: { you: false, them:
 let sttDisabled = false; // set when the key can't reach any speech model (stops retry spam)
 const buffers = { you: [], them: [] };
 const transcript = []; // { channel, text, ts } — capped at MAX_TRANSCRIPT_TURNS
+const liveTranscript = { you: null, them: null };
+function transcriptWithLiveSpeech() {
+  return [...transcript, ...Object.values(liveTranscript).filter(turn => turn?.text.trim())]
+    .sort((a, b) => a.ts - b.ts).slice(-MAX_TRANSCRIPT_TURNS);
+}
 const MAX_TRANSCRIPT_TURNS = 200; // ~30–40 minutes of conversation at normal pace
 let meetingMemory = null; // persists the transcript per meeting + notes; see src/meeting-memory.js
 let restoredTurns = []; // turns of an interrupted meeting resumed at launch, replayed to the renderer once
@@ -202,9 +207,9 @@ function getWhisperRuntime() {
   });
 }
 
-function publishTranscript(channel, text) {
+function publishTranscript(channel, text, ts = Date.now()) {
   if (!text || !text.trim()) return;
-  const turn = { channel, text: text.trim(), ts: Date.now() };
+  const turn = { channel, text: text.trim(), ts };
   pushTranscript(turn);
   send('transcript', turn);
   send('stt:final', { channel, text: turn.text });
@@ -502,7 +507,15 @@ function createWindow() {
 }
 
 // -------- STT flushing (batch mode fallback) --------
-async function flushChannel(channel) {
+const flushTasks = { you: null, them: null };
+function flushChannel(channel) {
+  if (flushTasks[channel]) return flushTasks[channel];
+  const task = flushChannelOnce(channel).finally(() => { if (flushTasks[channel] === task) flushTasks[channel] = null; });
+  flushTasks[channel] = task;
+  return task;
+}
+async function flushChannelOnce(channel) {
+  if (sttDisabled) { buffers[channel] = []; return; }
   if (state.transcribing[channel]) return;
   const chunks = buffers[channel];
   if (!chunks.length) return;
@@ -525,9 +538,7 @@ async function flushChannel(channel) {
       return;
     }
     if (res.text && res.text.trim() && res.text.trim().length > 1 && !/^[?!.,;:\-…]+$/.test(res.text.trim())) {
-      const turn = { channel, text: res.text.trim(), ts: Date.now() };
-      pushTranscript(turn);
-      send('transcript', turn);
+      publishTranscript(channel, res.text);
     }
   } catch (e) {
     console.log('[stt] error', e && e.message);
@@ -553,6 +564,7 @@ function handleSttError(err, settings) {
   const isQuota = err.status === 429 || err.code === 'RESOURCE_EXHAUSTED' || (err.message && err.message.includes('Quota exceeded'));
   const noAccess = err.status === 403 || err.status === 401 || err.code === 'model_not_found' || isQuota;
   sttDisabled = true; // stop hammering the API every few seconds
+  send('stt:status', { provider: err.provider, status: 'error' });
   if (noAccess) {
     send('status', { message: `Transcription off: your ${err.provider} key was rejected or hit a quota limit. Update your key in Settings to resume.` });
   } else {
@@ -577,13 +589,13 @@ function initStreamingSTT() {
       onTranscript: (ch, text) => {
         if (instance && streamingSTT[ch] !== instance) return; // stale instance after a stop/start
 
-        const turn = { channel: ch, text, ts: Date.now() };
-        pushTranscript(turn);
-        send('transcript', turn);
-        send('stt:final', { channel: ch, text });
+        const startedAt = liveTranscript[ch]?.ts || Date.now();
+        liveTranscript[ch] = null;
+        publishTranscript(ch, text, startedAt);
       },
       onInterim: (ch, text) => {
         if (instance && streamingSTT[ch] !== instance) return;
+        liveTranscript[ch] = text.trim() ? { channel: ch, text, ts: liveTranscript[ch]?.ts || Date.now(), partial: true } : null;
         send('stt:interim', { channel: ch, text });
       },
       onError: (err) => {
@@ -591,19 +603,23 @@ function initStreamingSTT() {
         // moment later; acting on it would kill the sessions that replaced it
         // and start the batch loop alongside them (double transcription).
         if (instance && streamingSTT[channel] !== instance) return;
+        if (!state.capturing) return; // A late error while draining must not restart batch capture.
         console.log('[streaming-stt] error', err.provider, err.message);
         const batchFallbackAvailable = createSTT(settings).available;
         stopStreamingSTT(); // close WebSockets and clear keep-alive intervals
         if (batchFallbackAvailable) {
           send('status', { message: `Streaming transcription (${err.provider}) error: ${err.message}. Falling back to batch mode.` });
           startFlushLoop();
+          send('stt:status', { provider: 'batch', status: 'batch' });
         } else if (!sttDisabled) {
           sttDisabled = true;
+          send('stt:status', { provider: err.provider, status: 'error' });
           send('status', { message: `Transcription stopped (${err.provider}): ${err.message}. The selected provider has no batch fallback.` });
         }
         streamingMode = false;
       },
       onStatusChange: (ch, status) => {
+        if (instance && streamingSTT[ch] !== instance) return;
         send('stt:status', { channel: ch, status });
         if (status === 'connected') {
           console.log(`[streaming-stt] ${ch} channel connected`);
@@ -622,14 +638,18 @@ function initStreamingSTT() {
   return streamingMode;
 }
 
-function stopStreamingSTT() {
-  ['you', 'them'].forEach((channel) => {
-    if (streamingSTT[channel]) {
-      streamingSTT[channel].disconnect();
-      streamingSTT[channel] = null;
-    }
-  });
+async function stopStreamingSTT({ drain = false } = {}) {
   streamingMode = false;
+  await Promise.all(['you', 'them'].map(async channel => {
+    const instance = streamingSTT[channel];
+    if (!instance) return;
+    try {
+      if (drain && instance.stop) await instance.stop();
+      else instance.disconnect();
+    } finally {
+      if (streamingSTT[channel] === instance) { streamingSTT[channel] = null; liveTranscript[channel] = null; }
+    }
+  }));
 }
 
 // -------- slides: auto tracking (opt-in, memory-only) --------
@@ -772,6 +792,7 @@ function noteAudioLevel(channel, buf) {
 }
 
 function routeAudio(channel, pcmBuffer) {
+  if (sttDisabled) return;
   const buf = Buffer.from(pcmBuffer);
   noteAudioLevel(channel, buf);
 
@@ -854,22 +875,18 @@ async function setCapturing(active) {
   }
 
   state.capturing = false;
+  send('capture:state', { active: false, streaming: false, mode: localWhisperTranscriber ? 'local' : 'off' });
+  send('stt:status', { status: 'stopping' });
   stopFlushLoop();
-  stopStreamingSTT();
-  if (meetingMemory) {
-    // Write/refresh the notes for this meeting in the background so the
-    // summary survives even if cue is closed before the meeting formally ends.
-    meetingMemory.refreshNotes().then((notes) => {
-      if (notes) send('status', { message: `Meeting notes saved (${transcript.length} turns).` });
-    }).catch(() => {});
-  }
+  await stopStreamingSTT({ drain: true });
+  await Promise.all([flushChannel('you'), flushChannel('them')]);
+  await Promise.all([flushChannel('you'), flushChannel('them')]); // Drain audio queued behind an in-flight batch.
   stopSlideLoop();
   buffers.you = []; buffers.them = [];
   vad.you.reset(); vad.them.reset();
   ringBuffers.you.clear(); ringBuffers.them.clear();
   const stoppingLocalTranscriber = localWhisperTranscriber;
   localWhisperTranscriber = null;
-  send('capture:state', { active: false, streaming: false, mode: stoppingLocalTranscriber ? 'local' : 'off' });
   if (stoppingLocalTranscriber) {
     send('stt:status', { provider: 'local', status: 'stopping' });
     try {
@@ -880,6 +897,14 @@ async function setCapturing(active) {
       activeWhisperModelId = null;
     }
   }
+  if (meetingMemory) {
+    // Write/refresh the notes for this meeting in the background so the
+    // summary survives even if cue is closed before the meeting formally ends.
+    meetingMemory.refreshNotes().then((notes) => {
+      if (notes) send('status', { message: `Meeting notes saved (${transcript.length} turns).` });
+    }).catch(() => {});
+  }
+  send('stt:status', { status: 'off' });
   return false;
 }
 
@@ -902,7 +927,8 @@ async function runFeature(mode, userText) {
     const userBubble = def.userBubble !== null
       ? def.userBubble
       : (mode === 'ask' ? userText : mode === 'answerThis' ? `"${(userText || '').slice(0, 60)}${userText && userText.length > 60 ? '…' : ''}"` : null);
-    const category = mode !== 'leetcode' ? detectCategory(transcript) : null;
+    const contextTranscript = transcriptWithLiveSpeech();
+    const category = mode !== 'leetcode' ? detectCategory(contextTranscript) : null;
     send('llm:start', { userBubble, small: !!def.small, category });
 
     if (!llm.ready) {
@@ -954,8 +980,8 @@ async function runFeature(mode, userText) {
     // sent to the model anyway, it fabricates plausible generic output that
     // looks like a canned preset. Say so instead, and log how much context
     // every feature actually ran with.
-    console.log(`[llm] mode=${mode} transcriptTurns=${transcript.length} capturing=${state.capturing}`);
-    if (def.transcriptRequired && transcript.length === 0) {
+    console.log(`[llm] mode=${mode} transcriptTurns=${contextTranscript.length} capturing=${state.capturing}`);
+    if (def.transcriptRequired && contextTranscript.length === 0) {
       send('llm:error', { message: state.capturing
         ? 'Nothing has been transcribed yet — say something (or let the other side talk) and try again.'
         : 'Nothing captured yet — press the listen button first so cue can hear the conversation.' });
@@ -963,14 +989,14 @@ async function runFeature(mode, userText) {
     }
 
     const settingsForPrompt = store.getSettings();
-    let contextBlock = buildInterviewContext(settingsForPrompt, mode, transcript);
+    let contextBlock = buildInterviewContext(settingsForPrompt, mode, contextTranscript);
     // Summaries of the last few meetings, so "what did we agree last time?"
     // has something to draw on. Never the current meeting, never leetcode.
     const memoryBlock = mode !== 'leetcode' && meetingMemory ? meetingMemory.memoryBlock() : null;
     if (memoryBlock) contextBlock = contextBlock ? contextBlock + '\n\n' + memoryBlock : memoryBlock;
     const baseSystem = def.buildSystem ? def.buildSystem(contextBlock, settingsForPrompt.aiRules || '') : (def.system || '');
     const system = appendModeContext(baseSystem, settings.meetingModes);
-    const built = def.build({ transcript, userText: userText || '' });
+    const built = def.build({ transcript: contextTranscript, userText: userText || '' });
 
     // Watchdog: a provider that stalls mid-stream would otherwise hang the await forever,
     // leaving state.busy = true and wedging every later question until an app restart.
@@ -1106,9 +1132,25 @@ ipcMain.handle('sessions:get', (event, id) => {
   return getSession(meetingStore, id, state.capturing ? meetingMemory?.current?.id : null);
 });
 ipcMain.handle('settings:get', () => store.redactForRenderer(store.getSettings()));
-ipcMain.handle('settings:set', (_e, patch) => {
+function audioConfiguration(settings) {
+  const provider = settings.sttProvider || 'auto';
+  return JSON.stringify({ provider, meetingAudio: !!settings.meetingAudio,
+    local: provider === 'local' ? settings.localWhisper : null,
+    baseUrl: provider === 'custom' ? settings.baseUrl : null,
+    keys: provider === 'local' ? null : Object.fromEntries(['openai', 'groq', 'gemini', 'deepgram', 'custom'].map(key => [key, settings.apiKeys?.[key] || ''])) });
+}
+ipcMain.handle('settings:set', async (_e, patch) => {
+  const clean = store.stripRendererPatch(patch), previous = store.getSettings();
+  const candidate = { ...previous, ...clean, apiKeys: { ...previous.apiKeys, ...clean.apiKeys }, localWhisper: { ...previous.localWhisper, ...clean.localWhisper } };
+  if ((state.capturing || desiredCaptureState) && audioConfiguration(previous) !== audioConfiguration(candidate)) {
+    desiredCaptureState = false;
+    if (win && !win.isDestroyed()) await win.webContents.executeJavaScript('window.CueListening ? window.CueListening.flush() : undefined');
+    captureTransition = captureTransition.catch(() => false).then(() => setCapturing(false));
+    await captureTransition;
+    send('status', { message: 'Audio settings saved. Start a new session to use them.' });
+  }
   sttDisabled = false;
-  const next = store.setSettings(store.stripRendererPatch(patch));
+  const next = store.setSettings(clean);
   const saveError = store.lastSaveError();
   if (saveError) throw new Error('Could not save Settings: ' + saveError.message);
   send('models:changed', store.modelChoices(next.provider));
@@ -1718,8 +1760,11 @@ app.on('before-quit', event => {
   Promise.race([
     win.webContents.executeJavaScript('window.CueMeetingModeUI ? window.CueMeetingModeUI.flush() : true'),
     new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Saving mode edits took too long.')), 5000); })
-  ]).then(saved => {
+  ]).then(async saved => {
     if (saved === false) throw new Error('Your mode edits could not be saved. Correct the highlighted field or retry saving before quitting.');
+    if (state.capturing) await win.webContents.executeJavaScript('window.CueListening ? window.CueListening.flush() : undefined');
+    desiredCaptureState = false;
+    await setCapturing(false);
     readyToQuit = true; app.quit();
   }).catch(error => {
     showMainWindow(); send('status', { message: error.message });

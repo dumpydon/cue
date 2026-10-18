@@ -339,6 +339,8 @@ button:focus { outline: none; }
 
 /* Interim / live transcript */
 .interim-transcript {
+  flex-shrink: 1; min-height: 0; white-space: pre-wrap; overflow-wrap: anywhere;
+  max-height: min(100px, 18vh); overflow-y: auto;
   display: none; margin: 6px 0 2px; padding: 6px 12px; border-radius: 8px;
   background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.20);
   color: rgba(255,255,255,0.7); font-size: 13px; line-height: 1.4;
@@ -411,29 +413,6 @@ button:focus { outline: none; }
 #send-btn.has-text:not(.ready) {
   background: var(--accent);
 }
-
-/* FIX #12: Interim text in input area — positioned relative to composer */
-.input-interim {
-  display: none;
-  position: absolute;
-  top: -28px;
-  left: 12px;
-  right: 12px;
-  padding: 4px 8px;
-  font-size: 12px;
-  font-style: italic;
-  color: rgba(255,255,255,0.4);
-  background: rgba(34,197,94,0.08);
-  border-radius: 6px 6px 0 0;
-  border: 1px solid rgba(34,197,94,0.15);
-  border-bottom: none;
-  pointer-events: none;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  z-index: 5;
-}
-
 
 /* STT auto-fill states — visual feedback for question readiness */
 
