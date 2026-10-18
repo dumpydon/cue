@@ -5,7 +5,7 @@
   --side-w: calc(300px / var(--native-zoom)); /* native DIP gutters never grow with text zoom */
   --main-w: calc(100vw - 2 * var(--side-w));
   --incognito-inset: 0px;
-  --incognito-dots: #292c28;
+  --incognito-dots: #252824;
   --bg: #2b013d;
   --panel-bg: #3f3642;
   --accent: #3C83F5;
@@ -105,7 +105,7 @@ html, body {
   stroke: var(--incognito-dots);
   stroke-width: calc(3.06px / var(--native-zoom));
   /* Round zero-length dashes keep dot size and spacing constant in native DIP. */
-  stroke-dasharray: 0 calc(100px / 11 / var(--native-zoom));
+  stroke-dasharray: 0 calc(1000px / 121 / var(--native-zoom));
   stroke-linecap: round;
 }
 html.incognito-mode .incognito-outline { opacity: 1; }
