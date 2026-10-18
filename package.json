@@ -1,6 +1,6 @@
 {
   "name": "cue",
-  "version": "0.4.8",
+  "version": "0.4.9",
   "description": "Open-source cross-platform invisible AI overlay — three separate inputs (screen, mic, system audio) into an LLM. A Cluely-style copilot for meetings and coding problems.",
   "license": "GPL-3.0-or-later",
   "author": "cue",
@@ -19,7 +19,9 @@
     "dist:win": "electron-builder --win",
     "pack:win": "electron-builder --win --dir",
     "dist:linux": "electron-builder --linux AppImage --x64",
-    "dist:linux:arm64": "electron-builder --linux AppImage --arm64"
+    "dist:linux:arm64": "electron-builder --linux AppImage --arm64",
+    "build:answers": "node scripts/build-answer-assets.cjs",
+    "prestart": "npm run build:answers"
   },
   "keywords": [
     "electron",
@@ -32,6 +34,7 @@
   "devDependencies": {
     "electron": "^33.2.1",
     "electron-builder": "^26.15.3",
+    "esbuild": "0.28.2",
     "extract-zip": "^2.0.1",
     "resedit": "^3.0.2",
     "tar": "^7.5.22"
@@ -42,8 +45,11 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
     "@google/genai": "^2.12.0",
+    "highlight.js": "11.12.0",
+    "katex": "0.19.0",
     "lucide-static": "^0.468.0",
     "mammoth": "^1.8.0",
+    "markdown-it": "15.0.3",
     "openai": "^4.73.0",
     "pdf-parse": "^1.1.1",
     "ws": "^8.18.0"

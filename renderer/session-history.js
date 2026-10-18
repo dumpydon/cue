@@ -22,7 +22,7 @@
       if (!items?.length) return;
       content.append(element('h3', 'session-section-title', title));
       const list = element('ul', 'session-notes');
-      for (const text of items) list.append(element('li', '', text));
+      for (const text of items) { const item = element('li', 'answer-content'); item.innerHTML = root.CueAnswerFormat.render(text); list.append(item); }
       content.append(list);
     }
     async function load() {
@@ -50,7 +50,8 @@
           $('#sessions-title').textContent = data.title;
           content.append(element('p', 'session-meta', metadata(data)));
           if (data.summary) {
-            content.append(element('h3', 'session-section-title', 'Summary'), element('p', 'session-summary', data.summary));
+            const summary = element('div', 'session-summary answer-content'); summary.innerHTML = root.CueAnswerFormat.render(data.summary);
+            content.append(element('h3', 'session-section-title', 'Summary'), summary);
           }
           section('Key points', data.keyPoints); section('Decisions', data.decisions);
           section('Action items', data.actionItems); section('Follow-up', data.followUp);

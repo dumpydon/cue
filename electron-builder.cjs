@@ -41,6 +41,7 @@ module.exports = {
   files: ["main.js", "preload.js", "src/**/*", "renderer/**/*", "vendor/**/*"],
   directories: { buildResources: "build-resources" },
   afterPack: "scripts/after-pack.js",
+  beforePack: async () => { require('./scripts/build-answer-assets.cjs').buildAnswerAssets(); },
   mac: {
     icon: "build-resources/icon.icns",
     target: [{ target: "zip", arch: ["x64", "arm64"] }],

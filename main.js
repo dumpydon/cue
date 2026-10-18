@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, globalShortcut, screen, session, desktopCapturer, shell, dialog, systemPreferences, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, screen, session, desktopCapturer, shell, dialog, systemPreferences, Tray, Menu, nativeImage, clipboard } = require('electron');
 const path = require('path');
 const os = require('os');
 const store = require('./src/store');
@@ -1132,6 +1132,11 @@ ipcMain.handle('sessions:get', (event, id) => {
   return getSession(meetingStore, id, state.capturing ? meetingMemory?.current?.id : null);
 });
 ipcMain.handle('settings:get', () => store.redactForRenderer(store.getSettings()));
+ipcMain.handle('answer:copy-text', (event, text) => {
+  if (event.sender !== win?.webContents || typeof text !== 'string' || text.length > 1000000) throw new Error('Copy code from a Cue answer.');
+  clipboard.writeText(text);
+  return true;
+});
 function audioConfiguration(settings) {
   const provider = settings.sttProvider || 'auto';
   return JSON.stringify({ provider, meetingAudio: !!settings.meetingAudio,

@@ -19,9 +19,14 @@ function buildSystem(base, contextBlock) {
 // the prompt unchanged — code answers should stay strict regardless of how the
 // user wants the AI to chat.
 function applyRules(prompt, aiRules, mode) {
-  if (mode === 'leetcode') return prompt;
-  return appendAiRules(prompt, aiRules);
+  if (mode === 'leetcode') return prompt + ANSWER_FORMAT;
+  return appendAiRules(prompt + ANSWER_FORMAT, aiRules);
 }
+
+const ANSWER_FORMAT = '\n\nWhen code or mathematics is needed, format it as readable Markdown. ' +
+  'Put code in fenced blocks with the correct language tag (for example python, cpp, java or javascript), preserving indentation. ' +
+  'Use LaTeX \\( ... \\) for inline math and \\[ ... \\] on separate lines for display equations; never put math in inline code. ' +
+  'Use short headings, lists or tables when they make a technical explanation easier to follow. Keep ordinary spoken answers concise.';
 
 const BASE_RULES =
   'Always respond in clear, natural English. Never switch to Hindi or any other language unless the user explicitly asks for it. ';
@@ -174,7 +179,7 @@ const MODES = {
       // stay strict regardless of personal style or context.
       return 'You are an expert competitive programmer. The screenshot contains a coding problem. ' +
         'Respond with: (1) a one-line restatement, (2) a short approach, (3) a clean, correct, idiomatic solution in a fenced code block ' +
-        '(use the language shown on screen, else Python), (4) time and space complexity. Keep prose tight.';
+        '(use the language shown on screen, else Python), (4) time and space complexity. Keep prose tight.' + ANSWER_FORMAT;
     },
     build() { return 'Solve the coding problem shown in the screenshot.'; }
   }

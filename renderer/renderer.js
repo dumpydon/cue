@@ -6,6 +6,8 @@
   const isWindows = cue.platform === 'win32';
   const isMac = cue.platform === 'darwin';
   const shortcutContext = window.CueShortcutContext.install({ cue });
+  window.CueAnswerFormat.installCopy({ document, copyText: text => cue.copyAnswerText(text),
+    onError: message => showStatus(message) });
 
   // Exiting must work before settings or provider setup has completed.
   const quitButton = $('#quit-btn');
@@ -90,31 +92,18 @@
 
   function esc(s) { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
-  // minimal, safe markdown: fenced code, bullets, inline code, bold, paragraphs
-  function renderMarkdown(text) {
-    const lines = text.split('\n');
-    let html = '', inCode = false, inList = false, buf = [];
-    const flushP = () => { if (buf.length) { html += '<p>' + inline(buf.join(' ')) + '</p>'; buf = []; } };
-    const inline = (s) => esc(s)
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    for (const raw of lines) {
-      const line = raw;
-      if (/^```/.test(line.trim())) {
-        if (!inCode) { flushP(); if (inList) { html += '</ul>'; inList = false; } html += '<pre><code>'; inCode = true; }
-        else { html += '</code></pre>'; inCode = false; }
-        continue;
-      }
-      if (inCode) { html += esc(line) + '\n'; continue; }
-      if (/^\s*[-*]\s+/.test(line)) { flushP(); if (!inList) { html += '<ul>'; inList = true; } html += '<li>' + inline(line.replace(/^\s*[-*]\s+/, '')) + '</li>'; continue; }
-      if (line.trim() === '') { flushP(); if (inList) { html += '</ul>'; inList = false; } continue; }
-      buf.push(line.trim());
-    }
-    flushP(); if (inList) html += '</ul>'; if (inCode) html += '</code></pre>';
-    return html;
+  let answerRenderTimer = null;
+  function renderAnswer(element, streaming) {
+    const follow = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 72;
+    const offsets = [...element.querySelectorAll('.answer-code pre, .answer-math-display')].map(node => node.scrollLeft);
+    element.innerHTML = window.CueAnswerFormat.render(element.dataset.raw || '');
+    element.setAttribute('aria-busy', String(streaming));
+    [...element.querySelectorAll('.answer-code pre, .answer-math-display')].forEach((node, index) => { node.scrollLeft = offsets[index] || 0; });
+    if (streaming) { caretEl = document.createElement('span'); caretEl.className = 'ai-caret'; element.appendChild(caretEl); }
+    if (follow) messages.scrollTop = messages.scrollHeight;
   }
 
-  function clearMessages() { messages.innerHTML = ''; aiEl = null; caretEl = null; }
+  function clearMessages() { clearTimeout(answerRenderTimer); answerRenderTimer = null; messages.innerHTML = ''; aiEl = null; caretEl = null; }
 
   function addUserBubble(text) {
     const b = document.createElement('div');
@@ -125,7 +114,7 @@
 
   function startAi(small) {
     aiEl = document.createElement('div');
-    aiEl.className = 'ai-text' + (small ? ' small' : '');
+    aiEl.className = 'ai-text answer-content' + (small ? ' small' : '');
     aiEl.dataset.raw = '';
     caretEl = document.createElement('span');
     caretEl.className = 'ai-caret';
@@ -136,21 +125,18 @@
   function appendToken(t) {
     if (!aiEl) startAi(false);
     aiEl.dataset.raw += t;
-    const span = document.createElement('span');
-    span.className = 'w';
-    span.textContent = t;
-    // Guard: caretEl must be a child of aiEl
-    if (caretEl && caretEl.parentNode === aiEl) {
-      aiEl.insertBefore(span, caretEl);
-    } else {
-      aiEl.appendChild(span);
-    }
+    if (answerRenderTimer) return;
+    const target = aiEl;
+    answerRenderTimer = setTimeout(() => {
+      answerRenderTimer = null;
+      if (aiEl === target && target.isConnected) renderAnswer(target, true);
+    }, 100);
   }
 
   function finalizeAi() {
     if (!aiEl) return;
-    const raw = aiEl.dataset.raw || '';
-    aiEl.innerHTML = renderMarkdown(raw);
+    clearTimeout(answerRenderTimer); answerRenderTimer = null;
+    renderAnswer(aiEl, false);
     aiEl = null; caretEl = null;
   }
 
@@ -1200,6 +1186,7 @@
     showToast(`Slide ${count} captured · ${title}`, 3000);
   });
   cue.on('llm:start', ({ userBubble, small, category }) => {
+    if (aiEl) finalizeAi();
     responseCount++;
     if (responseCount > MAX_RESPONSES) {
       const oldest = messages.querySelector('.response-group');
@@ -1225,7 +1212,7 @@
       group.appendChild(pill);
     }
     aiEl = document.createElement('div');
-    aiEl.className = 'ai-text' + (small ? ' small' : '');
+    aiEl.className = 'ai-text answer-content' + (small ? ' small' : '');
     aiEl.dataset.raw = '';
     caretEl = document.createElement('span');
     caretEl.className = 'ai-caret';

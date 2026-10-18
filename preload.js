@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld('cue', {
   sessionsList: () => ipcRenderer.invoke('sessions:list'),
   sessionGet: id => ipcRenderer.invoke('sessions:get', id),
   clearTranscript: () => ipcRenderer.invoke('transcript:clear'),
+  copyAnswerText: text => ipcRenderer.invoke('answer:copy-text', text),
   slidesList: () => ipcRenderer.invoke('slides:list'),
   slidesState: () => ipcRenderer.invoke('slides:state'),
   slidesClear: () => ipcRenderer.invoke('slides:clear'),

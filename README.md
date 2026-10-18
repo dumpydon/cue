@@ -35,6 +35,8 @@ The Omnitrix-inspired Cue icon uses a rounded square for the app and a monochrom
 
 `⌘−` / `⌘+` (`Ctrl−` / `Ctrl+` on Windows) scale the content while keeping the window and its transparent sidebar gutters fixed. Use `⌘0` / `Ctrl0` for actual size. Drag any edge or corner to resize; the bottom-right grip is icon-only.
 
+Technical answers support syntax-highlighted code blocks with language labels and **Copy code**, inline and display mathematics, headings, lists, and tables. Code and formulas render while the answer streams. Use fenced code with a language tag such as `python`, `cpp`, or `java`; use `\( ... \)` for inline math and `\[ ... \]` or `$$ ... $$` for equations. Rendering libraries and math fonts are bundled locally. Saved session summaries and notes use the same formatting.
+
 Brand sources live in `renderer/assets/*.svg`; run `node scripts/build-icon.js` to regenerate PNG, ICO and (on macOS) ICNS assets before packaging.
 
 It's a copilot for **live meetings** ("what do I say to that?") and **coding problems** (screenshot → full solution), and it's designed to be **invisible in screen shares** so it stays your private assistant.
