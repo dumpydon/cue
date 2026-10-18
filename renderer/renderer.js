@@ -5,6 +5,7 @@
   const $ = (s) => document.querySelector(s);
   const isWindows = cue.platform === 'win32';
   const isMac = cue.platform === 'darwin';
+  const shortcutContext = window.CueShortcutContext.install({ cue });
 
   // Exiting must work before settings or provider setup has completed.
   const quitButton = $('#quit-btn');
@@ -546,6 +547,7 @@
     }
     if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) { e.preventDefault(); send(); }
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      if (!shortcutContext.active()) return;
       e.preventDefault();
       runMode(e.shiftKey ? 'assist' : 'say', '');
     }
@@ -555,6 +557,7 @@
   document.addEventListener('keydown', (e) => {
     // Ctrl+Shift+A / Cmd+Shift+A: Force answer current question immediately
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
+      if (!shortcutContext.active()) return;
       e.preventDefault();
       if (input.value.trim()) {
         send();

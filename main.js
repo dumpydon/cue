@@ -9,6 +9,7 @@ const { execFile } = require('node:child_process');
 const { protectionCapability, createProtectionController } = require('./src/content-protection');
 const { createTrayController } = require('./src/tray');
 const { installWindowZoom } = require('./src/window-zoom');
+const { createShortcutController } = require('./src/shortcut-controller');
 const { listSessions, getSession } = require('./src/session-history');
 const modelPreferences = require('./src/model-preferences');
 const { createModelCatalog } = require('./src/model-catalog');
@@ -69,11 +70,13 @@ let trayController = null;
 let windowZoom = null;
 let meetingStore = null;
 let trayListeningPending = false;
-// Which global shortcuts cue actually holds. `globalShortcut.register` returns
-// false when another application already owns the combination, and nothing used
-// to look at that — so the only symptom was a key that did nothing. Iris reads
-// this and can say which key is taken instead of guessing from a screenshot.
-const shortcutState = { assist: false, say: false, leetcode: false, quit: false };
+let shortcutController = null;
+let shortcutRendererReady = false;
+let shortcutContext = { expanded: false, blocked: true };
+const shortcutNotifications = [];
+// Which keys Cue currently holds with the OS. Action entries are false while
+// paused, or when registration fails because another application owns the key.
+const shortcutState = { assist: false, say: false, leetcode: false, quit: false, hide: false };
 const isMac = process.platform === 'darwin';
 const isWindows = process.platform === 'win32';
 const isLinux = process.platform === 'linux';
@@ -303,11 +306,18 @@ function setScreenShareProtection(enabled) {
   return status;
 }
 
+function mainWindowVisible() {
+  return !!win && !win.isDestroyed() && win.isVisible() && !win.isMinimized()
+    && !(isMac && app.isHidden());
+}
+function syncWindowAvailability() { syncShortcuts(); trayController?.sync(); }
 function showMainWindow(channel) {
   if (!win || win.isDestroyed()) createWindow();
   const target = win;
   const reveal = () => {
     if (target.isDestroyed()) return;
+    if (isMac && app.isHidden()) app.show();
+    if (target.isMinimized()) target.restore();
     target.setIgnoreMouseEvents(false);
     if (channel === 'ui:open-settings' || channel === 'ui:open-sessions') ensureWindowVisible();
     target.show(); target.focus();
@@ -333,11 +343,11 @@ function createTray() {
   trayController = createTrayController({
     Tray, Menu, nativeImage,
     iconPath: path.join(__dirname, 'renderer/assets', isMac ? 'cueTrayTemplate.png' : 'cue-icon.png'),
-    getState: () => ({ listening: state.capturing, transitioning: trayListeningPending, visible: !!win && !win.isDestroyed() && win.isVisible(), protection: protection.state() }),
+    getState: () => ({ listening: state.capturing, transitioning: trayListeningPending, visible: mainWindowVisible(), protection: protection.state() }),
     actions: {
       toggleListening: toggleListeningFromTray,
       toggleVisibility: () => {
-        if (win && !win.isDestroyed() && win.isVisible()) {
+        if (mainWindowVisible()) {
           finishWindowInteraction(); win.hide();
           if (permWin && !permWin.isDestroyed()) permWin.hide();
         } else showMainWindow();
@@ -413,6 +423,8 @@ function createWindow() {
   }
 
   win = new BrowserWindow(winOptions);
+  shortcutRendererReady = false;
+  shortcutContext = { expanded: false, blocked: true };
   windowZoom = installWindowZoom({ window: win, onChange: value => send('window:zoom-changed', value) });
 
   const shouldProtect = store.getSettings().screenShareProtection !== false && !process.env.CUE_NO_PROTECT && WIN_IS_LOCAL_CONSOLE_SESSION;
@@ -433,20 +445,24 @@ function createWindow() {
   win.on('resize', queueBoundsSave);
   win.on('blur', () => finishWindowInteraction());
   win.on('focus', () => publishPermissionStatus());
-  win.on('show', () => trayController?.sync());
-  win.on('hide', () => trayController?.sync());
+  win.on('show', syncWindowAvailability);
+  win.on('hide', syncWindowAvailability);
+  win.on('minimize', syncWindowAvailability);
+  win.on('restore', syncWindowAvailability);
   win.on('close', event => {
     if (!readyToQuit) { event.preventDefault(); app.quit(); return; }
     clearTimeout(boundsSaveTimer);
     finishWindowInteraction();
     saveWindowPosition();
   });
-  win.on('closed', stopWindowInteraction);
+  win.on('closed', () => { stopWindowInteraction(); shortcutRendererReady = false; syncShortcuts(); });
 
   win.setTitle('Cue');
 
   win.webContents.on('did-finish-load', () => {
+    shortcutRendererReady = true;
     win.showInactive();
+    syncShortcuts();
     win.setTitle('Cue');
     if (restoredTurns.length) {
       // A meeting was in progress when cue last exited: put its transcript back
@@ -472,9 +488,16 @@ function createWindow() {
     }
   });
   win.webContents.on('render-process-gone', (_e, d) => {
+    shortcutRendererReady = false;
+    syncShortcuts();
     stopWindowInteraction();
     console.log('[cue] renderer gone', JSON.stringify(d));
     recordEvent({ level: 'fatal', event: 'renderer_gone', code: d && d.reason, msg: 'renderer process ended: ' + JSON.stringify(d), frame: 'BrowserWindow' });
+  });
+  win.webContents.on('did-start-loading', () => {
+    shortcutRendererReady = false;
+    shortcutContext = { expanded: false, blocked: true };
+    syncShortcuts();
   });
 }
 
@@ -1460,18 +1483,38 @@ ipcMain.on('app:restart', event => {
 });
 
 // -------- shortcuts --------
+function assistantShortcutsAvailable() {
+  return mainWindowVisible() && shortcutRendererReady && shortcutContext.expanded && !shortcutContext.blocked
+    && (!permWin || permWin.isDestroyed() || !permWin.isVisible());
+}
+function syncShortcuts() { shortcutController?.sync(); }
+ipcMain.on('window:shortcut-context', (event, context) => {
+  if (!win || win.isDestroyed() || event.sender !== win.webContents
+    || typeof context?.expanded !== 'boolean' || typeof context?.blocked !== 'boolean') return;
+  shortcutContext = { expanded: context.expanded, blocked: context.blocked };
+  syncShortcuts();
+});
 function registerShortcuts() {
-  shortcutState.say = globalShortcut.register('CommandOrControl+Return', () => runFeature('say', ''));
-  shortcutState.assist = globalShortcut.register('CommandOrControl+Shift+Return', () => runFeature('assist', ''));
-  shortcutState.leetcode = globalShortcut.register('CommandOrControl+H', () => runFeature('leetcode', ''));
-  shortcutState.hide = globalShortcut.register('CommandOrControl+Shift+/', () => {
-    if (!win || win.isDestroyed() || !win.isVisible()) showMainWindow();
-    else send('hide:toggle', {});
-  });
-  shortcutState.quit = globalShortcut.register('CommandOrControl+Shift+X', () => app.quit());
-  for (const [name, wasRegistered] of Object.entries(shortcutState)) {
-    if (!wasRegistered) {
+  if (shortcutController) { syncShortcuts(); return; }
+  shortcutController = createShortcutController({
+    globalShortcut, state: shortcutState, canRunActions: assistantShortcutsAvailable,
+    actions: {
+      say: () => runFeature('say', ''), assist: () => runFeature('assist', ''), leetcode: () => runFeature('leetcode', ''),
+      hide: () => {
+        if (!mainWindowVisible()) showMainWindow();
+        else send('hide:toggle', {});
+      },
+      quit: () => app.quit()
+    },
+    onUnavailable: name => {
       recordEvent({ level: 'warn', event: 'shortcut_unavailable', msg: 'another application holds the ' + name + ' shortcut', frame: 'registerShortcuts', context: { shortcut: name } });
+    },
+    onError: (_name, error) => send('status', { message: error.message || String(error) })
+  });
+  shortcutController.start();
+  if (isMac) {
+    for (const name of ['NSApplicationDidHideNotification', 'NSApplicationDidUnhideNotification']) {
+      shortcutNotifications.push(systemPreferences.subscribeLocalNotification(name, syncWindowAvailability));
     }
   }
 }
@@ -1550,11 +1593,14 @@ function createPermissionsWindow() {
     }
   });
   protection.applyToWindow(permWin);
+  for (const event of ['show', 'hide', 'minimize', 'restore']) permWin.on(event, syncShortcuts);
+  syncShortcuts();
   permWin.loadFile(path.join(__dirname, 'renderer', 'permissions.html'));
   let refreshTimer = null;
   permWin.on('focus', publishPermissionStatus);
   permWin.on('closed', () => {
     clearInterval(refreshTimer); permWin = null;
+    syncShortcuts();
     if (win && !win.isDestroyed()) win.setAlwaysOnTop(true, 'screen-saver', 1);
   });
   refreshTimer = setInterval(publishPermissionStatus, 2000);
@@ -1711,6 +1757,8 @@ app.whenReady().then(async () => {
 });
 
 app.on('will-quit', () => {
+  shortcutController?.dispose();
+  for (const id of shortcutNotifications) systemPreferences.unsubscribeLocalNotification(id);
   trayController?.destroy();
   stopWindowInteraction();
   saveWindowPosition();

@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('cue', {
   windowInteractionStart: (gesture) => ipcRenderer.send('window:interaction-start', gesture),
   windowInteractionEnd: () => ipcRenderer.send('window:interaction-end'),
   windowEnsureVisible: () => ipcRenderer.send('window:ensure-visible'),
+  windowShortcutContext: context => ipcRenderer.send('window:shortcut-context', context),
   discoveryRefresh: () => ipcRenderer.invoke('discovery:refresh'),
   windowZoomGet: () => ipcRenderer.invoke('window:zoom-get'),
   sessionsList: () => ipcRenderer.invoke('sessions:list'),

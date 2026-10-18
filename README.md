@@ -227,15 +227,15 @@ cue is hidden from most screen-share tools automatically — **Google Meet, Micr
 
 > On Windows, press **`Ctrl`** wherever **`⌘`** appears below. cue's own UI relabels the keys to match your OS.
 
-- **`⌘` `↵` — What should I say?** Suggests what to say next from the conversation. Works from anywhere.
-- **`⌘` `⇧` `↵` — Smart assist.** The do-the-smart-thing key. On a coding problem it solves it; in a conversation it tells you what to say. Works from anywhere.
+- **`⌘` `↵` — What should I say?** Suggests what to say next from the conversation while Cue is visible and expanded.
+- **`⌘` `⇧` `↵` — Smart assist.** The do-the-smart-thing key. On a coding problem it solves it; in a conversation it tells you what to say. Available while Cue is visible and expanded.
 - **`⌘` `H` — Solve what's on screen.** Screenshots a coding problem and returns the approach, code, and time/space complexity.
 - **Start session / End session** (top bar) — start or stop **listening** to a meeting. The green dot means it's live.
 - **Type a question** in the box and press `↵` to ask about your screen or conversation.
 - **Smart** — flip it on for a smarter, more thorough model; off for fast and cheap.
 - **Move & resize** — drag any non-interactive background in the toolbar, answer panel, composer, or settings. Buttons, inputs, selectable text, and scrollbars keep their normal behavior. Drag any panel edge to resize horizontally or vertically, or a corner to resize diagonally. The window remembers its size and position; responses scroll while the composer stays visible.
 - **Eye / incognito** — the eye icon means screen-share protection is off. Click it to enable hidden mode; it becomes a hat-and-glasses icon. Click again to return to visible mode. The choice is saved and applies to every Cue window. Protection is enabled by default, matching earlier versions. On macOS this remains best-effort: some capture tools can still show Cue.
-- **Hide** collapses the panel to just the top bar. Quit with `⌘` `⇧` `X` on macOS or `Ctrl` `Shift` `X` on Windows.
+- **Hide** collapses the panel to just the top bar. Hiding, collapsing, minimizing Cue, or opening a dialog releases its action shortcuts so other apps can use them, including LeetCode’s Command–Enter. **`⌘` `⇧` `/`** (`Ctrl` `Shift` `/` on Windows) remains available to show or expand Cue again. Screen-share invisibility does not pause shortcuts while the panel is visible locally. Quit with `⌘` `⇧` `X` while Cue is expanded, or use Quit Cue in the menu.
 
 The panel is see-through and click-through — the empty space around it never blocks the app behind it.
 
