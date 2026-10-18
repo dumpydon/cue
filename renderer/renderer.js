@@ -14,6 +14,23 @@
   // ---- paint icons -------------------------------------------------------
   $('#logo-btn').innerHTML = '<img src="assets/cue-mark.svg" alt="Cue" />';
   $('#sessions-btn').innerHTML = icon('history', { size: 16 });
+  // Explicit SVG geometry keeps round, evenly spaced dots around both the
+  // pill and panel, including fractional dimensions and text zoom changes.
+  const outlineObserver = new ResizeObserver(entries => {
+    const zoom = Number(getComputedStyle(document.documentElement).getPropertyValue('--native-zoom')) || 1;
+    const offset = 1 / zoom;
+    for (const { target: svg } of entries) {
+      const { width, height } = svg.getBoundingClientRect();
+      if (!width || !height) continue;
+      const radius = parseFloat(getComputedStyle(svg.parentElement).borderTopLeftRadius) || 0;
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      const rect = svg.querySelector('rect');
+      const geometry = { x: offset, y: offset, width: Math.max(0, width - 2 * offset),
+        height: Math.max(0, height - 2 * offset), rx: Math.max(0, Math.min(radius, width / 2, height / 2) - offset) };
+      for (const [name, value] of Object.entries(geometry)) rect.setAttribute(name, value);
+    }
+  });
+  document.querySelectorAll('.incognito-outline').forEach(svg => outlineObserver.observe(svg));
   window.CueWindowZoom.install({ cue }).ready.catch(error => showStatus(error.message));
   $('#tb-settings-btn').innerHTML = icon('settings', { size: 16 });
   window.CueProtectionToggle.install({ button: $('#protection-btn'), cue, icon,

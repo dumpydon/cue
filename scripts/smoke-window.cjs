@@ -107,19 +107,28 @@ app.on('browser-window-created', (_event, win) => {
           return js(`(() => {
             const rect = selector => { const r = document.querySelector(selector).getBoundingClientRect();
               return { x:r.x, y:r.y, width:r.width, height:r.height }; };
-            const outline = getComputedStyle(document.querySelector('#panel-wrap'), '::before');
+            const outline = getComputedStyle(document.querySelector('#panel-wrap > .incognito-outline'));
+            const dots = getComputedStyle(document.querySelector('#panel-wrap > .incognito-outline rect'));
             return { frame:rect('#panel-wrap'), panel:rect('#panel'), toolbar:rect('#toolbar'),
+              outline:rect('#panel-wrap > .incognito-outline'),
+              path:rect('#panel-wrap > .incognito-outline rect'),
               font:getComputedStyle(document.querySelector('.ai-text')).fontSize,
               hidden:document.documentElement.classList.contains('incognito-mode'),
-              dots:outline.borderTopStyle, opacity:outline.opacity, pointerEvents:outline.pointerEvents };
+              diameter:dots.strokeWidth, spacing:dots.strokeDasharray, color:dots.stroke,
+              opacity:outline.opacity, pointerEvents:outline.pointerEvents };
           })()`);
         }
         await waitForProtection('hat-glasses');
         const hiddenLayout = await protectionLayout();
         assert.equal(hiddenLayout.hidden, true);
-        assert.equal(hiddenLayout.dots, 'dotted');
+        assert.equal(hiddenLayout.diameter, '4px');
+        assert.equal(hiddenLayout.spacing, '0px, 12px');
+        assert.equal(hiddenLayout.color, 'rgb(98, 102, 109)');
         assert.equal(hiddenLayout.opacity, '1');
         assert.equal(hiddenLayout.pointerEvents, 'none', 'outline never intercepts controls');
+        assert.deepEqual(hiddenLayout.outline, hiddenLayout.frame, 'dots stay anchored to the original border');
+        assert.equal(hiddenLayout.path.width, hiddenLayout.frame.width - 2);
+        assert.equal(hiddenLayout.path.height, hiddenLayout.frame.height - 2);
         assert.equal(hiddenLayout.panel.x - hiddenLayout.frame.x, 7);
         assert.equal(hiddenLayout.panel.y - hiddenLayout.frame.y, 7);
         assert.equal(hiddenLayout.frame.width - hiddenLayout.panel.width, 14);

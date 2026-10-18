@@ -5,7 +5,7 @@
   --side-w: calc(300px / var(--native-zoom)); /* native DIP gutters never grow with text zoom */
   --main-w: calc(100vw - 2 * var(--side-w));
   --incognito-inset: 0px;
-  --incognito-dots: #85888e;
+  --incognito-dots: #62666d;
   --bg: #2b013d;
   --panel-bg: #3f3642;
   --accent: #3C83F5;
@@ -90,17 +90,26 @@ html, body {
 }
 /* Keep the original outline while the protected surfaces draw slightly inward.
    These are renderer-only insets: native bounds and saved window size stay fixed. */
-#toolbar::before, #panel-wrap::before {
-  content: '';
+.incognito-outline {
   position: absolute;
   inset: 0;
-  border: calc(2px / var(--native-zoom)) dotted var(--incognito-dots);
-  border-radius: inherit;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
   opacity: 0;
   pointer-events: none;
   transition: opacity 160ms ease;
 }
-html.incognito-mode #toolbar::before, html.incognito-mode #panel-wrap::before { opacity: 1; }
+.incognito-outline rect {
+  fill: none;
+  stroke: var(--incognito-dots);
+  stroke-width: calc(4px / var(--native-zoom));
+  /* Round zero-length dashes give 4 DIP dots at 12 DIP intervals, about a
+     third as many dots as the former 2 DIP browser-drawn dotted border. */
+  stroke-dasharray: 0 calc(12px / var(--native-zoom));
+  stroke-linecap: round;
+}
+html.incognito-mode .incognito-outline { opacity: 1; }
 html.incognito-mode #toolbar {
   background: transparent;
   border-color: transparent;
@@ -982,7 +991,7 @@ button:focus { outline: none; }
   #panel, .user-bubble, .ai-text .w { animation: none !important; opacity: 1 !important; transform: none !important; }
   #live-dot { animation: none !important; }
   .transcript-sidebar { transition: none !important; }
-  #panel, #panel-wrap, #toolbar::before, #panel-wrap::before { transition: none !important; }
+  #panel, #panel-wrap, .incognito-outline { transition: none !important; }
 }
 
 /* ============================ Assistant access ============================ */
