@@ -3,8 +3,9 @@
 The public website lives in `site/`, independently of the Electron app. It uses
 original HTML/CSS/JavaScript, an original 27-second film, and a Cloudflare Worker
 with static assets. No website account, database, AI provider, or analytics is
-required. Glee and Vigil informed the glass, spacing, and footer direction;
-Cluely informed the product-demo sequence. Their source and footage were not copied.
+required. Glee and Vigil informed the glass and spacing. The footer follows the
+owner's Glee structure and typography, with Cue's purple palette and social
+links. Cluely informed the product-demo sequence; no Cluely source or footage is used.
 
 ## Work locally
 
