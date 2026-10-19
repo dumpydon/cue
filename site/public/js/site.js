@@ -4,7 +4,7 @@ import { setupProductExamples } from './ui-demo.js';
 const one = (selector, root = document) => root.querySelector(selector);
 const all = (selector, root = document) => [...root.querySelectorAll(selector)];
 const motion = matchMedia('(prefers-reduced-motion: reduce)');
-setupFilmPlayers();
+const refreshFilms = setupFilmPlayers();
 setupProductExamples();
 
 const nav = one('.navtoggle'), navMenu = one('#navmenu');
@@ -69,6 +69,7 @@ all('[data-tour]').forEach(link => link.addEventListener('click', event => {
   event.preventDefault(); tourFocus = link;
   all('video').forEach(video => video.pause());
   modal.showModal(); document.body.style.overflow = 'hidden'; one('.modal-close', modal).focus();
+  requestAnimationFrame(refreshFilms);
 }));
 one('.modal-close', modal || document.createElement('div'))?.addEventListener('click', () => modal.close());
 modal?.addEventListener('click', event => {
@@ -76,7 +77,7 @@ modal?.addEventListener('click', event => {
   const r = modal.getBoundingClientRect();
   if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) modal.close();
 });
-modal?.addEventListener('close', () => { one('video', modal).pause(); document.body.style.overflow = ''; tourFocus?.focus(); });
+modal?.addEventListener('close', () => { one('video', modal).pause(); document.body.style.overflow = ''; tourFocus?.focus(); refreshFilms(); });
 
 if (!motion.matches && typeof IntersectionObserver === 'function') {
   const observer = new IntersectionObserver(entries => entries.forEach(entry => {

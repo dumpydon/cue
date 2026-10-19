@@ -111,10 +111,8 @@ export function setupFilmPlayers(root=document){
     // Native controls remain available when JavaScript is unavailable or media fails.
     video.controls=false;controls.hidden=false;tools.hidden=false;player.classList.add('film-enhanced');sync()
   })
-  const dialogs=[...new Set(players.map(player=>player.closest('dialog')).filter(Boolean))]
-  const dialogObserver=new MutationObserver(refresh)
-  dialogs.forEach(dialog=>dialogObserver.observe(dialog,{attributes:true,attributeFilter:['open']}))
   document.addEventListener('visibilitychange',refresh)
   addEventListener('pageshow',refresh)
   motion.addEventListener('change',refresh)
+  return refresh
 }
