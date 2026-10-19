@@ -190,6 +190,7 @@
     }
     .perm-card { animation: fadeIn 280ms cubic-bezier(0.22,1,0.36,1); }
   </style>
+  <link rel="stylesheet" href="incognito-cursor.css" />
 </head>
 <body>
   <div id="perm-root">
@@ -243,6 +244,12 @@
   <script>
     (function () {
       const cue = window.cue;
+
+      // Share the main window's cursor policy; these status reads never
+      // request microphone or screen access.
+      const syncProtection = state => document.documentElement.classList.toggle('incognito-mode', !!state.enabled);
+      cue.on('protection:changed', syncProtection);
+      cue.protectionGet().then(syncProtection).catch(error => cue.log('protection status error: ' + error));
 
       const statusMic = document.getElementById('status-mic');
       const statusScreen = document.getElementById('status-screen');

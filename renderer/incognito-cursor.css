@@ -1,0 +1,20 @@
+/* Screen sharing can capture the system cursor independently of protected
+   windows. Keep Cue's cursor an arrow in incognito, including while dragging
+   or resizing, without changing selection, hit testing, or pointer events. */
+html.incognito-mode,
+html.incognito-mode *,
+html.incognito-mode::before,
+html.incognito-mode::after,
+html.incognito-mode *::before,
+html.incognito-mode *::after,
+html.incognito-mode[data-window-interaction],
+html.incognito-mode[data-window-interaction] * {
+  cursor: default !important;
+}
+
+html.incognito-mode *::-webkit-resizer,
+html.incognito-mode *::-webkit-inner-spin-button,
+html.incognito-mode *::-webkit-outer-spin-button,
+html.incognito-mode *::file-selector-button {
+  cursor: default !important;
+}

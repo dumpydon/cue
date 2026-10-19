@@ -58,6 +58,8 @@ app.on('browser-window-created', (_event, win) => {
     if (!win.webContents.getURL().endsWith('/renderer/index.html')) return;
     try {
       const wc = win.webContents;
+      const nativeCursors = [];
+      wc.on('cursor-changed', (_event, type) => nativeCursors.push(type));
       async function screenshot(name) {
         const directory = process.env.CUE_WINDOW_QA_DIR;
         if (!directory) return;
@@ -100,6 +102,16 @@ app.on('browser-window-created', (_event, win) => {
           }, 20);
         })`);
       }
+      async function assertArrowCursors(execute = js) {
+        const changed = await execute(`Array.from(document.querySelectorAll('html, html *'))
+          .map(element => ({ element: element.id || element.tagName, cursor: getComputedStyle(element).cursor }))
+          .filter(item => item.cursor !== 'default')`);
+        assert.deepEqual(changed, [], 'incognito uses the arrow throughout Cue, including dynamic controls');
+      }
+      async function hoverCursor(selector, expected) {
+        input('mouseMove', await point(selector));
+        await until(() => expected.includes(nativeCursors.at(-1)), 'native cursor at ' + selector + ': ' + nativeCursors.at(-1));
+      }
       if (testProtection) {
         const protectionBounds = win.getBounds();
         async function protectionLayout() {
@@ -136,6 +148,7 @@ app.on('browser-window-created', (_event, win) => {
         assert.deepEqual(win.getBounds(), protectionBounds, 'incognito leaves native geometry unchanged');
         assert.equal(win.protectionCalls.at(-1), true, 'startup sets the native protection flag');
         assert.equal(await js("document.querySelector('#protection-btn').getAttribute('aria-pressed')"), 'true');
+        await assertArrowCursors();
         await screenshot('hidden-mode');
         await js("document.body.style.background='#fff'"); await screenshot('incognito-white');
         await js("document.body.style.background='#16181e'"); await screenshot('incognito-dark');
@@ -152,6 +165,9 @@ app.on('browser-window-created', (_event, win) => {
         assert.deepEqual(win.getBounds(), protectionBounds, 'leaving incognito preserves native geometry');
         assert.equal(win.protectionCalls.at(-1), false, 'visible mode clears native protection');
         assert.equal(JSON.parse(fs.readFileSync(path.join(profile, 'cue-data.json'), 'utf8')).screenShareProtection, false);
+        assert.deepEqual(await js(`['#smart-toggle', '.ai-text', '#panel', '.resize-s']
+          .map(selector => getComputedStyle(document.querySelector(selector)).cursor)`), ['pointer', 'text', 'grab', 'ns-resize'], 'normal cursors return outside incognito');
+        await hoverCursor('#smart-toggle', ['hand']);
         await screenshot('visible-mode');
         const loaded = new Promise(resolve => wc.once('did-finish-load', resolve));
         wc.reload(); await loaded;
@@ -163,6 +179,11 @@ app.on('browser-window-created', (_event, win) => {
         assert.equal(win.protectionCalls.length, before + 1, 'rapid clicks do not toggle twice');
         assert.equal(win.protectionCalls.at(-1), true);
         assert.equal(JSON.parse(fs.readFileSync(path.join(profile, 'cue-data.json'), 'utf8')).screenShareProtection, true);
+        await assertArrowCursors();
+        await hoverCursor('#smart-toggle', ['pointer', 'default']);
+        for (const selector of ['.ai-text', '#input', '#panel', '.resize-s']) {
+          await hoverCursor(selector, ['pointer', 'default']);
+        }
       }
 
       async function point(selector, fractionX = 0.5, fractionY = 0.5) {
@@ -191,6 +212,7 @@ app.on('browser-window-created', (_event, win) => {
         // Wait for IPC admission before moving the virtual cursor. Fixed
         // sleeps race Electron's event delivery when a build is running.
         await until(() => gestureStarts > started, 'gesture start at ' + selector);
+        if (testProtection) await assertArrowCursors();
         cursor = { x: cursor.x + dx, y: cursor.y + dy };
         try {
           await until(() => JSON.stringify(win.getBounds()) !== JSON.stringify(startBounds), 'window movement at ' + selector);
@@ -291,6 +313,7 @@ app.on('browser-window-created', (_event, win) => {
       assert.deepEqual(win.getBounds(), initial);
       assert.ok(await js('window.getSelection().toString().length > 0'), 'response text stays selectable');
       assert.equal(await js('document.documentElement.dataset.windowInteraction === undefined'), true);
+      if (testProtection) await assertArrowCursors();
       if (permissionDenied) {
         await js('window.cue.permissionsShow()');
         await until(() => BrowserWindow.getAllWindows().length === 2, 'permission review');
@@ -298,9 +321,12 @@ app.on('browser-window-created', (_event, win) => {
         if (review.webContents.isLoading()) await new Promise(resolve => review.webContents.once('did-finish-load', resolve));
         if (testProtection) {
           assert.equal(review.protectionCalls.at(-1), true, 'new permission windows inherit hidden mode');
+          await assertArrowCursors(source => review.webContents.executeJavaScript(source));
           await js('window.cue.protectionSet(false)');
           assert.equal(review.protectionCalls.at(-1), false, 'toggle also updates existing permission windows');
+          assert.equal(await review.webContents.executeJavaScript("getComputedStyle(document.querySelector('#check-btn')).cursor"), 'pointer');
           await js('window.cue.protectionSet(true)');
+          await assertArrowCursors(source => review.webContents.executeJavaScript(source));
         }
         assert.equal(await review.webContents.executeJavaScript("document.querySelector('#continue-btn').disabled"), false, 'Return to Cue is always available');
         for (let i = 0; i < 3; i++) await review.webContents.executeJavaScript('window.cue.permissionsCheck()');
@@ -328,6 +354,7 @@ app.on('browser-window-created', (_event, win) => {
 
       await js("document.querySelector('#tb-settings-btn').click()");
       await pause(80);
+      if (testProtection) await assertArrowCursors();
       const beforeSettingsDrag = win.getBounds();
       await gesture('.s-title', 18, 12);
       assert.equal(win.getBounds().x, beforeSettingsDrag.x + 18, 'settings background draggable');
@@ -362,7 +389,7 @@ app.on('browser-window-created', (_event, win) => {
       assert.equal(await js('document.documentElement.dataset.windowInteraction === undefined'), true);
       assert.deepEqual(errors, [], 'no renderer errors');
       clearTimeout(timeout);
-      console.log('PASS: window interactions, permission checks' + (testProtection ? ', native protection toggling, icons, rapid clicks, persistence and all windows.' : '.'));
+      console.log('PASS: window interactions, permission checks' + (testProtection ? ', incognito arrow cursors, native protection toggling, icons, rapid clicks, persistence and all windows.' : '.'));
       app.quit();
     } catch (error) { fail(error); }
   });
