@@ -21,6 +21,7 @@ Outputs:
 
 - `site/public/media/cue-launch.mp4` — H.264 High / yuv420p, AAC stereo, fast-start.
 - `site/public/media/cue-launch-poster.jpg` — 1600 × 900 poster.
+- `site/film.json` — exact MP4 size and checksum used for reliable byte ranges.
 - `site/film-src/previews/` — six uncompressed keyframes and poster for review.
 
 `--draft` creates a 1280 × 720 version named `cue-launch-draft.mp4`.

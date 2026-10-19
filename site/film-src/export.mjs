@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawn} from 'node:child_process';
+import {createHash} from 'node:crypto';
 const dir=path.dirname(fileURLToPath(import.meta.url));
 const sr=48000,seconds=27,n=seconds*sr;
 const pcm=Buffer.alloc(n*4);
@@ -31,4 +32,10 @@ const header=Buffer.alloc(44);header.write('RIFF',0);header.writeUInt32LE(36+pcm
 fs.writeFileSync(path.join(dir,'soundtrack.wav'),Buffer.concat([header,pcm]));
 const electron=process.env.ELECTRON_BIN||path.resolve(dir,'../../node_modules/.bin/electron');
 const p=spawn(electron,[path.join(dir,'render.cjs'),...process.argv.slice(2)],{stdio:'inherit',cwd:dir,env:{...process.env,ELECTRON_RUN_AS_NODE:''}});
-p.on('exit',code=>process.exit(code??1));p.on('error',e=>{console.error(e);process.exit(1)});
+p.on('exit',code=>{
+  if(code===0&&!process.argv.includes('--draft')&&!process.argv.includes('--frames-only')){
+    const movie=fs.readFileSync(path.resolve(dir,'../public/media/cue-launch.mp4'));
+    fs.writeFileSync(path.resolve(dir,'../film.json'),JSON.stringify({path:'/media/cue-launch.mp4',bytes:movie.length,sha256:createHash('sha256').update(movie).digest('hex')},null,2)+'\n');
+  }
+  process.exit(code??1);
+});p.on('error',e=>{console.error(e);process.exit(1)});

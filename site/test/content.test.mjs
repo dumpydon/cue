@@ -3,7 +3,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 const site=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+test('the film range metadata matches the exact published movie', async () => {
+  const metadata = JSON.parse(await fs.readFile(path.join(site, 'film.json'), 'utf8'));
+  const bytes = await fs.readFile(path.join(site, 'public', metadata.path));
+  assert.equal(bytes.length, metadata.bytes); assert.equal(createHash('sha256').update(bytes).digest('hex'), metadata.sha256);
+});
 test('public navigation and media references resolve to built local files',async()=>{
   const publicRoot=path.join(site,'public');
   for(const name of ['index.html','privacy/index.html','install/index.html','404.html']){

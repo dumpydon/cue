@@ -73,3 +73,9 @@ test('film seeking receives correct partial bytes when the static binding ignore
   response = await handler.fetch(new Request('https://cue.example/media/cue-launch.mp4', { headers: { Range: 'bytes=2-5', 'If-Range': '"old-film"' } }), env);
   assert.equal(response.status, 200); assert.equal(await response.text(), 'abcdefghij');
 });
+test('film seeking also works when the asset binding omits Content-Length', async () => {
+  const handler = createHandler({ assets: {} });
+  const env = { ASSETS: { fetch: async () => new Response(bytes, { headers: { 'Content-Type': 'video/mp4' } }) } };
+  const response = await handler.fetch(new Request('https://cue.example/media/cue-launch.mp4', { headers: { Range: 'bytes=2-5' } }), env);
+  assert.equal(response.status, 206); assert.equal(response.headers.get('Content-Length'), '4'); assert.equal(await response.text(), 'cdef');
+});

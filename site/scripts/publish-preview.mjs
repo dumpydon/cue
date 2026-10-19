@@ -17,6 +17,21 @@ function api(endpoint, optional = false) {
 }
 async function digest(file) { const hash = createHash('sha256'); for await (const chunk of createReadStream(file)) hash.update(chunk); return hash.digest('hex'); }
 
+// GitHub's by-tag endpoint can return 404 for an unpublished draft. Drafts
+// are discoverable in the authenticated release collection before tagging.
+export function findRelease(tag, readApi = api) {
+  const published = readApi('releases/tags/' + encodeURIComponent(tag), true);
+  if (published) return published;
+  for (let page = 1; page <= 10; page++) {
+    const releases = readApi(`releases?per_page=100&page=${page}`);
+    const matches = releases.filter(release => release.tag_name === tag);
+    if (matches.length > 1) throw Error('Multiple drafts use this preview tag');
+    if (matches.length) return matches[0];
+    if (releases.length < 100) return null;
+  }
+  throw Error('Could not safely resolve preview release among existing drafts');
+}
+
 export function validateReleaseMetadata(release, tag, source) {
   if (release.tag_name !== tag || release.prerelease !== true) throw Error('Existing release is not the expected developer prerelease');
   if (release.draft && release.target_commitish !== source) throw Error('Draft points to different source; refusing to reuse it');
@@ -53,11 +68,12 @@ export async function publish() {
   for (const asset of expected) {
     if (!/^(?:cue-[a-zA-Z0-9._-]+\.zip|SHA256SUMS\.txt)$/.test(asset.filename) || !/^[a-f0-9]{64}$/.test(asset.sha256) || (await stat(path.join(directory, asset.filename))).size !== asset.bytes || await digest(path.join(directory, asset.filename)) !== asset.sha256) throw Error('Local release artifact failed integrity verification');
   }
-  let release = api('releases/tags/' + encodeURIComponent(tag), true);
+  let release = findRelease(tag);
   await verifyTag(tag, source, false);
   if (!release) {
     gh('release', 'create', tag, '--draft', '--prerelease', '--target', source, '--title', `Cue ${manifest.version} — Developer Preview`, '--notes-file', path.join(directory, 'release-notes.md'));
-    release = api('releases/tags/' + encodeURIComponent(tag));
+    release = findRelease(tag);
+    if (!release) throw Error('Created draft is not visible through the release collection');
   }
   validateReleaseMetadata(release, tag, source);
   const names = new Set(expected.map(asset => asset.filename));
@@ -67,14 +83,14 @@ export async function publish() {
     if (existing) await verifyAsset(existing, asset, tag);
     else gh('release', 'upload', tag, path.join(directory, asset.filename));
   }
-  release = api('releases/tags/' + encodeURIComponent(tag));
+  release = api('releases/' + release.id);
   for (const asset of expected) {
     const remote = release.assets.find(item => item.name === asset.filename);
     if (!remote) throw Error('Release upload did not complete');
     await verifyAsset(remote, asset, tag);
   }
   if (release.draft) gh('release', 'edit', tag, '--draft=false', '--prerelease', '--latest=false');
-  release = api('releases/tags/' + encodeURIComponent(tag));
+  release = api('releases/' + release.id);
   validateReleaseMetadata(release, tag, source);
   if (release.draft || !release.published_at) throw Error('Preview is still unpublished');
   await verifyTag(tag, source, true);

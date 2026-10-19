@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateReleaseMetadata, validateAssetMetadata } from '../scripts/publish-preview.mjs';
+import { validateReleaseMetadata, validateAssetMetadata, findRelease } from '../scripts/publish-preview.mjs';
 import { verifiedParts } from '../build.mjs';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -18,6 +18,13 @@ test('release recovery rejects a stable release, changed source, or mismatched e
   assert.throws(() => validateAssetMetadata({ ...asset, state: 'starter' }, expected));
   assert.throws(() => validateAssetMetadata({ ...asset, size: 100 }, expected));
   assert.throws(() => validateAssetMetadata({ ...asset, digest: 'sha256:' + 'd'.repeat(64) }, expected));
+});
+test('an unpublished draft is recovered when GitHub cannot find it by tag', () => {
+  const draft = { id: 42, tag_name: 'v0.4.14-preview.1', draft: true };
+  const readApi = endpoint => endpoint.startsWith('releases/tags/') ? null : [draft];
+  assert.equal(findRelease(draft.tag_name, readApi), draft);
+  assert.equal(findRelease('other-tag', readApi), null);
+  assert.throws(() => findRelease(draft.tag_name, endpoint => endpoint.startsWith('releases/tags/') ? null : [draft, draft]), /Multiple drafts/);
 });
 test('a deployable bootstrap requires exact present pieces, and rejects damaged or missing files', async () => {
   const staging = await mkdtemp(path.join(os.tmpdir(), 'cue-site-build-'));

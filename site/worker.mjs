@@ -1,4 +1,5 @@
 import release from './release.json' with { type: 'json' };
+import film from './film.json' with { type: 'json' };
 
 const securityHeaders = {
   'X-Content-Type-Options': 'nosniff',
@@ -110,7 +111,7 @@ export function createHandler(manifest = release) {
       const upstream = await env.ASSETS.fetch(request);
       // Some static-asset bindings return the complete MP4 even for Range.
       // Preserve seeking by slicing only the requested bytes in that case.
-      const length = Number(upstream.headers.get('Content-Length'));
+      const length = Number(upstream.headers.get('Content-Length')) || (url.pathname === film.path ? film.bytes : 0);
       const ifRange = request.headers.get('If-Range');
       if (url.pathname.endsWith('.mp4') && request.headers.has('Range') && upstream.status === 200 && Number.isSafeInteger(length) && length > 0 && (!ifRange || ifRange === upstream.headers.get('ETag') || ifRange === upstream.headers.get('Last-Modified'))) {
         const headers = new Headers(upstream.headers);
