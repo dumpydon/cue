@@ -78,7 +78,7 @@ const DEFAULTS = {
   aiRules: '',
   // Overlay opacity (1 = fully opaque). Clamped so the window never vanishes.
   opacity: 1,
-  // Preserve the existing startup protection; only the native toggle writes it.
+  // Current run's choice; main resets it to true before constructing windows.
   screenShareProtection: true,
   // Slides: opt-in auto slide tracking (memory-only, forwarded, never written to disk).
   slides: {

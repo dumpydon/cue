@@ -284,6 +284,11 @@ async function getWhisperOverview() {
 // styles.css. Persist visible-column bounds, excluding the transparent gutters.
 const SIDE_W = windowGeometry.SIDE_WIDTH;
 
+// A visible-mode choice belongs to this run only. Reset the cached setting
+// before any window is constructed; startup protection never depends on a
+// successful settings write. Renderer reloads keep the current run's choice.
+if (ownsInstanceLock) store.getSettings().screenShareProtection = true;
+
 const protection = createProtectionController({
   capability: protectionCapability({
     platform: process.platform,
@@ -405,6 +410,7 @@ function createWindow() {
     // first click only activating it and a drag on the panel does nothing.
     acceptFirstMouse: true,
     frame: false,
+    show: false, // Apply native protection before the first frame is shown.
     transparent: true,
     hasShadow: false,
     resizable: true,
@@ -1626,6 +1632,7 @@ function createPermissionsWindow() {
     x: Math.round(workArea.x + (workArea.width - W) / 2),
     y: Math.round(workArea.y + (workArea.height - H) / 2),
     frame: true,
+    show: false, // Protect permission review before showing it, too.
     transparent: false,
     backgroundColor: '#16181e',
     hasShadow: true,

@@ -14,7 +14,9 @@ process.env.LOCALAPPDATA = profile;
 const testProtection = process.env.CUE_SMOKE_PROTECTION === '1';
 if (testProtection) delete process.env.CUE_NO_PROTECT;
 else process.env.CUE_NO_PROTECT = '1';
-fs.writeFileSync(path.join(profile, 'cue-data.json'), JSON.stringify({ onboarded: true }), { mode: 0o600 });
+// Simulate quitting the previous run in visible mode. A fresh process must
+// protect its first window anyway, while a renderer reload must not reset it.
+fs.writeFileSync(path.join(profile, 'cue-data.json'), JSON.stringify({ onboarded: true, screenShareProtection: false }), { mode: 0o600 });
 
 // No permission prompts in this test: it exercises geometry and DOM only.
 const permissionDenied = process.env.CUE_SMOKE_DENIED === '1';
@@ -50,7 +52,13 @@ app.on('browser-window-created', (_event, win) => {
   win.protectionCalls = [];
   const setContentProtection = win.setContentProtection.bind(win);
   win.setContentProtection = enabled => { setContentProtection(enabled); win.protectionCalls.push(enabled); };
-  win.showInactive = () => {}; // keep the user's installed app undisturbed
+  const showInactive = win.showInactive.bind(win);
+  let firstShow = true;
+  win.showInactive = () => {
+    if (firstShow && testProtection) assert.equal(win.protectionCalls.at(-1), true, 'fresh launch is protected before its first frame is shown');
+    firstShow = false;
+    showInactive(); // keep the user's installed app focused
+  };
   win.show = () => {};
   win.webContents.setBackgroundThrottling(false);
   win.webContents.on('console-message', (_event, level, message) => { if (level === 3) errors.push(message); });
@@ -147,6 +155,7 @@ app.on('browser-window-created', (_event, win) => {
         assert.equal(hiddenLayout.frame.height - hiddenLayout.panel.height, 14);
         assert.deepEqual(win.getBounds(), protectionBounds, 'incognito leaves native geometry unchanged');
         assert.equal(win.protectionCalls.at(-1), true, 'startup sets the native protection flag');
+        assert.deepEqual(win.protectionCalls, [true], 'a saved visible choice never disables native protection on fresh launch');
         assert.equal(await js("document.querySelector('#protection-btn').getAttribute('aria-pressed')"), 'true');
         await assertArrowCursors();
         await screenshot('hidden-mode');
