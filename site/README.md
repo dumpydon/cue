@@ -27,6 +27,13 @@ Deploy uses the authorized Cloudflare account and publishes
 `https://cue.dumpydon.workers.dev/`. Do not commit Wrangler OAuth credentials or
 tokens. The site dependency lockfile is separate from the desktop app's.
 
+GitHub Actions checks the desktop app and website independently. A ready preview
+manifest triggers the verified prerelease publisher. Production website updates
+use `npm run deploy` with Wrangler authentication. Git-triggered Cloudflare
+Builds is not connected: the available local OAuth grant can deploy Workers,
+but Cloudflare rejected access to the Builds API. No deployment token is
+embedded in the repository.
+
 ## Film
 
 `public/media/cue-launch.mp4` is an actual 1080p H.264/AAC film, 27 seconds long.
@@ -58,6 +65,9 @@ size and checksum before copying only those files. A clean source checkout can
 run `npm run check` without the ignored archives; this source-check build is
 not a deployable bootstrap. The publishing workflow resumes incomplete drafts,
 checks the tag and existing asset digests, and never replaces mismatched bytes.
+
+The current preview's permanent downloads are GitHub Release assets. Bootstrap
+parts are omitted from normal website builds and from the source repository.
 
 Prepare a verified ZIP after signing, then stage it:
 

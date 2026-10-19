@@ -5,97 +5,23 @@
   "minimumMacOS": "14.4",
   "signing": "local-development",
   "repository": "https://github.com/dumpydon/cue",
-  "releaseNotes": "https://github.com/dumpydon/cue/releases",
+  "releaseNotes": "https://github.com/dumpydon/cue/releases/tag/v0.4.14-preview.1",
   "assets": {
     "arm64": {
       "filename": "cue-0.4.14-preview-mac-arm64.zip",
       "bytes": 131396193,
       "sha256": "c6fbb062e371a1da5a6326bb84a4b272cd437bb4062f7eac4c6aadaf3050b00a",
       "url": "/get/mac/arm64",
-      "host": "worker-preview",
-      "releaseUrl": "https://github.com/dumpydon/cue/releases/download/v0.4.14-preview.1/cue-0.4.14-preview-mac-arm64.zip",
-      "parts": [
-        {
-          "path": "/downloads/parts/0.4.14/arm64/part-001.bin",
-          "bytes": 20971520,
-          "sha256": "1a641618b5d47d90c6cba89156bca1d9fbe6d6b1fd6212516177792eec2141db"
-        },
-        {
-          "path": "/downloads/parts/0.4.14/arm64/part-002.bin",
-          "bytes": 20971520,
-          "sha256": "f3bee59c56f01daa4e9863ed57a9b40f16edc69fe2653c59ff476c87dc1aef11"
-        },
-        {
-          "path": "/downloads/parts/0.4.14/arm64/part-003.bin",
-          "bytes": 20971520,
-          "sha256": "e3b437af768b9fd2061d1f962ea84e6eedd6e23d03742e429ad30a2157777ceb"
-        },
-        {
-          "path": "/downloads/parts/0.4.14/arm64/part-004.bin",
-          "bytes": 20971520,
-          "sha256": "9e420493617115d4dd5b2be5e4d217777e27b9dd76256f589d80a3286b2e66a3"
-        },
-        {
-          "path": "/downloads/parts/0.4.14/arm64/part-005.bin",
-          "bytes": 20971520,
-          "sha256": "af27ae10d545ef325c1a456e5b49740a959fe8ed34bdb1d43d52af1ea1b2bcd0"
-        },
-        {
-          "path": "/downloads/parts/0.4.14/arm64/part-006.bin",
-          "bytes": 20971520,
-          "sha256": "9b4106ec2440370b038578a68e0991e4aae1074c71e682f339647ecc418d84fe"
-        },
-        {
-          "path": "/downloads/parts/0.4.14/arm64/part-007.bin",
-          "bytes": 5567073,
-          "sha256": "5ddd7733b01b46ffbf89aa42f4837e224a94554adc4660abd2a22650626d53b3"
-        }
-      ]
+      "host": "github",
+      "releaseUrl": "https://github.com/dumpydon/cue/releases/download/v0.4.14-preview.1/cue-0.4.14-preview-mac-arm64.zip"
     },
     "x64": {
       "filename": "cue-0.4.14-preview-mac-x64.zip",
       "bytes": 138076184,
       "sha256": "08143ff3a59d32d8b01f1e9e0617aa6f76a30551a6d00be2250e73e79fdd76f4",
       "url": "/get/mac/x64",
-      "host": "worker-preview",
-      "releaseUrl": "https://github.com/dumpydon/cue/releases/download/v0.4.14-preview.1/cue-0.4.14-preview-mac-x64.zip",
-      "parts": [
-        {
-          "path": "/downloads/parts/0.4.14/x64/part-001.bin",
-          "bytes": 20971520,
-          "sha256": "6ce77350276d280af10bbcb1352a78d38fa1a6e611d3f1d3e5d9de45cd826386"
-        },
-        {
-          "path": "/downloads/parts/0.4.14/x64/part-002.bin",
-          "bytes": 20971520,
-          "sha256": "d4d91d1b38976f86c25b1b84ec065982448d76937b10f09c550ce6f17a378218"
-        },
-        {
-          "path": "/downloads/parts/0.4.14/x64/part-003.bin",
-          "bytes": 20971520,
-          "sha256": "91229954be7f7709589a9bc819ab8b24050e3100946bc75e6af5db0d6fcb6ab0"
-        },
-        {
-          "path": "/downloads/parts/0.4.14/x64/part-004.bin",
-          "bytes": 20971520,
-          "sha256": "e3d3fb16cd9d24f3ec3693d6b18ef28a27a06cf44d4dbb498aeab3882eeff6f5"
-        },
-        {
-          "path": "/downloads/parts/0.4.14/x64/part-005.bin",
-          "bytes": 20971520,
-          "sha256": "34437cfb842a260d4db0c648117d8302dde542644a8735276094d115edf873bf"
-        },
-        {
-          "path": "/downloads/parts/0.4.14/x64/part-006.bin",
-          "bytes": 20971520,
-          "sha256": "61ef77088a0eb0e6445e03f12695e5b7eab91e778c43ba22be452703c9b3206e"
-        },
-        {
-          "path": "/downloads/parts/0.4.14/x64/part-007.bin",
-          "bytes": 12247064,
-          "sha256": "03a399d7f1ec6d898657ff77b06753a68125d78b7562e6292f40e13fdab42eb6"
-        }
-      ]
+      "host": "github",
+      "releaseUrl": "https://github.com/dumpydon/cue/releases/download/v0.4.14-preview.1/cue-0.4.14-preview-mac-x64.zip"
     }
   },
   "notarized": false,
