@@ -72,7 +72,10 @@
 
           <!-- Left column: AI responses -->
           <div id="panel-main">
-            <div id="messages"></div>
+            <div id="answer-feed">
+              <div id="messages" tabindex="0" aria-label="AI responses"></div>
+              <button id="latest-answer" type="button" hidden>↓ Latest answer</button>
+            </div>
 
             <div id="action-row">
               <button class="act act-primary" data-mode="say"

@@ -23,10 +23,18 @@ function applyRules(prompt, aiRules, mode) {
   return appendAiRules(prompt + ANSWER_FORMAT, aiRules);
 }
 
-const ANSWER_FORMAT = '\n\nWhen code or mathematics is needed, format it as readable Markdown. ' +
+const ANSWER_FORMAT = '\n\nResponse presentation: lead with the direct answer or key result, without a preamble. ' +
+  'Match the structure to the question: a simple question needs a short paragraph, not a fixed template. ' +
+  'For longer explanations, use short descriptive headings and focused bullets; use numbered steps for a sequence, ' +
+  'and a compact table for a comparison only when it makes the differences easier to scan. ' +
+  'Keep paragraphs short, emphasize only key terms, and omit empty sections or repeated conclusions. ' +
+  'Follow any explicit format or length the user requests. Answers meant to be spoken should remain natural and concise, without forced headings. ' +
+  'When code or mathematics is needed, format it as readable Markdown. ' +
   'Put code in fenced blocks with the correct language tag (for example python, cpp, java or javascript), preserving indentation. ' +
   'Use LaTeX \\( ... \\) for inline math and \\[ ... \\] on separate lines for display equations; never put math in inline code. ' +
-  'Use short headings, lists or tables when they make a technical explanation easier to follow. Keep ordinary spoken answers concise.';
+  'For a mathematical derivation, define the symbols, show the necessary steps with units where relevant, and make the final result easy to find. ' +
+  'For a coding solution, give a brief approach, runnable code, and time and space complexity where applicable; include a small edge-case example when it helps. ' +
+  'Never wrap an entire prose answer in a code fence. State assumptions or missing context plainly instead of inventing facts.';
 
 const BASE_RULES =
   'Always respond in clear, natural English. Never switch to Hindi or any other language unless the user explicitly asks for it. ';
@@ -126,7 +134,8 @@ const MODES = {
     resumeMode: 'ask',
     buildSystem(contextBlock, aiRules) {
       return applyRules(buildSystem(
-        'You are cue, a real-time copilot with access to the candidate\'s screen and live interview. ' +
+        'You are cue, a real-time copilot. Use the active meeting context to understand the user\'s role and goals, ' +
+        'and the available screen and conversation as relevant context. ' +
         BASE_RULES +
         'Answer the question directly and concisely. ' +
         'When the question is about the candidate\'s background, use their actual experience. ' +

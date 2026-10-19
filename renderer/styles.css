@@ -313,7 +313,13 @@ button:focus { outline: none; }
 #panel-wrap.collapsed { display: none; } /* hides the panel with its status label, live dot, sidebar and toast */
 
 /* ============================ Messages ============================ */
+#answer-feed { position: relative; display: flex; flex: 1; min-height: 0; min-width: 0; }
 #messages { display: flex; flex: 1; min-height: 0; flex-direction: column; overflow-y: auto; }
+#messages:focus-visible { outline: 1px solid rgba(127,176,249,.5); outline-offset: -1px; border-radius: 6px; }
+#latest-answer { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); z-index: 4; border: 1px solid rgba(127,176,249,.45); border-radius: 20px; padding: 7px 12px; background: #293449; color: #d9e8ff; font: 600 12px var(--font); box-shadow: 0 3px 12px rgba(0,0,0,.3); white-space: nowrap; cursor: pointer; }
+#latest-answer[hidden] { display: none; }
+#latest-answer:hover { background: #354666; }
+#latest-answer:focus-visible { outline: 2px solid #7fb0f9; outline-offset: 2px; }
 #messages > * { flex-shrink: 0; }
 .user-bubble {
   align-self: flex-end;

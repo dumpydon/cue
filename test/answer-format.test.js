@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { render } = require('../src/answer-format');
+const { render, toPlainText } = require('../src/answer-format');
 
 test('inline and display LaTeX preserve commands, fractions, sums and complexity symbols', () => {
   const html = render(String.raw`For \(V\) vertices and \(E\) edges, use \(O((V+E)\log V)\) time.
@@ -60,4 +60,21 @@ test('headings, ordered steps, tables and unfinished streamed blocks render safe
 test('macro expansion and size limits bound untrusted math', () => {
   assert.doesNotThrow(() => render(String.raw`\(\def\loop{\loop}\loop\)`));
   assert.doesNotThrow(() => render(String.raw`\(\rule{999999em}{999999em}\)`));
+});
+
+test('plain answer copy preserves steps and code indentation without Markdown markers', () => {
+  assert.equal(toPlainText('## Steps\n\n1. **Read** the input.\n2. Return `value`.\n\n```python\ndef solve(value):\n    return value + 1\n```'),
+    'Steps\n\n1. Read the input.\n2. Return value.\n\ndef solve(value):\n    return value + 1');
+  assert.equal(toPlainText('3. First\n4. Second\n   - A nested choice'), '3. First\n4. Second\n  • A nested choice');
+});
+
+test('plain answer copy includes each equation once and readable table rows', () => {
+  const text = toPlainText('Time \\(O(n)\\).\n\n\\[\n\\frac{a}{b}\n\\]\n\n| Choice | Cost |\n| --- | --- |\n| A | $O(n)$ |');
+  assert.equal(text, 'Time O(n).\n\n\\frac{a}{b}\n\nChoice\tCost\nA\tO(n)');
+  assert.ok(!text.includes('katex'));
+});
+
+test('plain answer copy keeps text safe and never rewrites code literals', () => {
+  assert.equal(toPlainText('[Documentation](https://example.com) &amp; **notes**'), 'Documentation & notes');
+  assert.equal(toPlainText('```html\n<script>alert("$x$")</script>\n```'), '<script>alert("$x$")</script>');
 });

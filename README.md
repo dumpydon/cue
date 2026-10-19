@@ -37,6 +37,8 @@ The Omnitrix-inspired Cue icon uses a rounded square for the app and a monochrom
 
 Technical answers support syntax-highlighted code blocks with language labels and **Copy code**, inline and display mathematics, headings, lists, and tables. Code and formulas render while the answer streams. Use fenced code with a language tag such as `python`, `cpp`, or `java`; use `\( ... \)` for inline math and `\[ ... \]` or `$$ ... $$` for equations. Rendering libraries and math fonts are bundled locally. Saved session summaries and notes use the same formatting.
 
+Completed responses include **Copy answer** for readable text and **Copy Markdown** for the original formatting, code fences, and LaTeX. Each code block has a **Wrap / Unwrap** control; its setting survives streaming updates. Prose uses a comfortable line length on wide windows, with clearer headings, numbered steps, and comparison tables. Scrolling up pauses automatic following, and **Latest answer** returns to the newest content. Response guidance adapts structure to the question while keeping spoken replies concise.
+
 Brand sources live in `renderer/assets/*.svg`; run `node scripts/build-icon.js` to regenerate PNG, ICO and (on macOS) ICNS assets before packaging.
 
 It's a copilot for **live meetings** ("what do I say to that?") and **coding problems** (screenshot → full solution), and it's designed to be **invisible in screen shares** so it stays your private assistant.

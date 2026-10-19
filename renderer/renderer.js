@@ -109,21 +109,51 @@
   const MAX_RESPONSES = 20;
 
   const messages = $('#messages');
+  const latestAnswer = $('#latest-answer');
+  const nearLatestAnswer = () => messages.scrollHeight - messages.scrollTop - messages.clientHeight < 72;
+  const updateLatestAnswer = () => { latestAnswer.hidden = nearLatestAnswer(); };
+  messages.addEventListener('scroll', updateLatestAnswer, { passive: true });
+  messages.addEventListener('click', () => requestAnimationFrame(updateLatestAnswer)); // Code wrapping can change the scrollable height.
+  new ResizeObserver(updateLatestAnswer).observe(messages);
+  latestAnswer.addEventListener('click', () => {
+    messages.scrollTop = messages.scrollHeight;
+    messages.focus({ preventScroll: true });
+    updateLatestAnswer();
+  });
 
   function esc(s) { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
   let answerRenderTimer = null;
   function renderAnswer(element, streaming) {
-    const follow = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 72;
+    const follow = nearLatestAnswer();
     const offsets = [...element.querySelectorAll('.answer-code pre, .answer-math-display')].map(node => node.scrollLeft);
+    const wraps = [...element.querySelectorAll('.answer-code')].map(node => node.classList.contains('wrapped'));
     element.innerHTML = window.CueAnswerFormat.render(element.dataset.raw || '');
     element.setAttribute('aria-busy', String(streaming));
+    [...element.querySelectorAll('.answer-code')].forEach((node, index) => window.CueAnswerFormat.setCodeWrap(node, !!wraps[index]));
     [...element.querySelectorAll('.answer-code pre, .answer-math-display')].forEach((node, index) => { node.scrollLeft = offsets[index] || 0; });
     if (streaming) { caretEl = document.createElement('span'); caretEl.className = 'ai-caret'; element.appendChild(caretEl); }
     if (follow) messages.scrollTop = messages.scrollHeight;
+    updateLatestAnswer();
   }
 
-  function clearMessages() { clearTimeout(answerRenderTimer); answerRenderTimer = null; messages.innerHTML = ''; aiEl = null; caretEl = null; }
+  function addAnswerActions(element) {
+    if (!element.dataset.raw?.trim() || element.nextElementSibling?.classList.contains('answer-actions')) return;
+    const actions = document.createElement('div');
+    actions.className = 'answer-actions'; actions.setAttribute('aria-label', 'Copy response');
+    for (const [format, label] of [['text', 'Copy answer'], ['markdown', 'Copy Markdown']]) {
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'answer-copy'; button.dataset.format = format;
+      button.textContent = label;
+      button.title = format === 'text' ? 'Copy readable text without Markdown markers' : 'Copy the original Markdown, code and LaTeX';
+      actions.append(button);
+    }
+    element.after(actions);
+    if (nearLatestAnswer()) messages.scrollTop = messages.scrollHeight;
+    updateLatestAnswer();
+  }
+
+  function clearMessages() { clearTimeout(answerRenderTimer); answerRenderTimer = null; messages.innerHTML = ''; aiEl = null; caretEl = null; latestAnswer.hidden = true; }
 
   function addUserBubble(text) {
     const b = document.createElement('div');
@@ -157,6 +187,7 @@
     if (!aiEl) return;
     clearTimeout(answerRenderTimer); answerRenderTimer = null;
     renderAnswer(aiEl, false);
+    addAnswerActions(aiEl);
     aiEl = null; caretEl = null;
   }
 
@@ -1206,6 +1237,7 @@
     showToast(`Slide ${count} captured · ${title}`, 3000);
   });
   cue.on('llm:start', ({ userBubble, small, category }) => {
+    const follow = nearLatestAnswer();
     if (aiEl) finalizeAi();
     responseCount++;
     if (responseCount > MAX_RESPONSES) {
@@ -1239,18 +1271,11 @@
     aiEl.appendChild(caretEl);
     group.appendChild(aiEl);
     messages.appendChild(group);
-    // Use requestAnimationFrame so the DOM is fully updated before scrolling.
-    // Scroll #messages directly rather than calling sep.scrollIntoView(): that
-    // scrolls *every* scrollable ancestor, and once the panel is tall enough it
-    // scrolls the document too, aligning the separator to the top of the window
-    // and pushing #toolbar out of view. html/body are overflow:hidden, so there
-    // is no scrollbar or wheel gesture to undo it — the Stop/Hide/Quit controls
-    // just never come back.
-    requestAnimationFrame(() => {
-      if (sep && sep.isConnected) {
-        messages.scrollTo({ top: sep.offsetTop - messages.offsetTop, behavior: 'smooth' });
-      }
-    });
+    // Scroll only the response feed, never its ancestors. Do this now: a
+    // deferred scroll could override the user scrolling up before the next
+    // frame. Subsequent tokens follow only while the reader stays near bottom.
+    if (follow) messages.scrollTop = messages.scrollHeight;
+    updateLatestAnswer();
     setBusy(true);
   });
   cue.on('llm:token', ({ text }) => appendToken(text));
@@ -1881,9 +1906,10 @@
     clearMessages();
     addUserBubble('What should I say?');
     const ai = document.createElement('div');
-    ai.className = 'ai-text';
-    ai.textContent = '“A discounted cash flow model values a company by projecting future free cash flows and discounting them to present value using the weighted average cost of capital.”';
+    ai.className = 'ai-text answer-content';
+    ai.dataset.raw = 'A discounted cash flow model values a company by projecting future free cash flows and discounting them to present value using the weighted average cost of capital.';
     messages.appendChild(ai);
+    renderAnswer(ai, false); addAnswerActions(ai);
   }
 
   // ---- global keys -------------------------------------------------------

@@ -1,14 +1,17 @@
 /* Answer prose, code and math share one readable theme in live and saved views. */
 .answer-content { min-width: 0; overflow-wrap: anywhere; }
+.answer-content > :is(p, ol, ul, blockquote, h1, h2, h3, h4, h5, h6) { max-width: 70ch; }
 .answer-content > :first-child { margin-top: 0; }
 .answer-content > :last-child { margin-bottom: 0; }
-.answer-content p { margin: 10px 0; }
-.answer-content :is(h1, h2, h3, h4, h5, h6) { margin: 18px 0 8px; line-height: 1.3; font-weight: 650; }
+.answer-content p { margin: 12px 0; line-height: 1.65; }
+.answer-content :is(h1, h2, h3, h4, h5, h6) { margin: 24px 0 10px; line-height: 1.3; font-weight: 650; letter-spacing: -.015em; }
 .answer-content h1 { font-size: 1.3em; }
 .answer-content h2 { font-size: 1.17em; }
 .answer-content :is(h3, h4, h5, h6) { font-size: 1.05em; }
 .answer-content :is(ol, ul) { margin: 8px 0; padding-left: 1.4em; }
 .answer-content li { margin: 5px 0; }
+.answer-content li::marker { color: #a8c8ff; font-weight: 600; }
+.answer-content strong { font-weight: 650; color: #fff; }
 .answer-content blockquote { margin: 12px 0; padding: 2px 14px; border-left: 3px solid #7c91b7; color: #cbd5e1; }
 .answer-content hr { border: 0; border-top: 1px solid var(--bd-strong); margin: 18px 0; }
 .answer-content code { font-family: var(--mono); }
@@ -16,12 +19,14 @@
 .answer-code { margin: 14px 0; border: 1px solid #41475a; border-radius: 12px; overflow: hidden; background: #181c27; letter-spacing: 0; }
 .answer-code-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 13px; background: #232837; border-bottom: 1px solid #363d4f; }
 .answer-code-language { color: #b6c1d3; font: 600 12px var(--font); }
-.answer-code-copy { border: 1px solid #58647a; border-radius: 6px; padding: 4px 8px; background: transparent; color: #d6deec; font: 500 11px var(--font); cursor: pointer; }
-.answer-code-copy:hover { background: #343e53; color: white; }
-.answer-code-copy:focus-visible { outline: 2px solid #7fb0f9; outline-offset: 2px; }
+.answer-code-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.answer-code-copy, .answer-code-wrap { border: 1px solid #58647a; border-radius: 6px; padding: 4px 8px; background: transparent; color: #d6deec; font: 500 11px var(--font); cursor: pointer; white-space: nowrap; }
+.answer-code-copy:hover, .answer-code-wrap:hover, .answer-code-wrap[aria-pressed="true"] { background: #343e53; color: white; }
+.answer-code-copy:focus-visible, .answer-code-wrap:focus-visible, .answer-copy:focus-visible { outline: 2px solid #7fb0f9; outline-offset: 2px; }
 .answer-code-copy:disabled { opacity: .8; cursor: default; }
 .answer-content .answer-code pre { margin: 0; padding: 14px; border: 0; border-radius: 0; background: transparent; overflow-x: auto; white-space: pre; tab-size: 4; line-height: 1.65; font: 13px/1.65 var(--mono); }
 .answer-content .answer-code code { display: block; color: #b9d8f4; font-size: inherit; white-space: pre; overflow-wrap: normal; }
+.answer-content .answer-code.wrapped :is(pre, code) { white-space: pre-wrap; overflow-wrap: anywhere; }
 .hljs-keyword, .hljs-selector-tag, .hljs-meta .hljs-keyword { color: #c6a0f6; }
 .hljs-title, .hljs-title.function_, .hljs-title.class_ { color: #f5a4cf; }
 .hljs-variable, .hljs-params, .hljs-property, .hljs-attr { color: #9fcefc; }
@@ -33,10 +38,16 @@
 .hljs-tag { color: #f5a4cf; }
 .hljs-meta, .hljs-section { color: #e4d299; }
 .hljs-deletion { color: #f3a8ae; }
-.answer-table { overflow-x: auto; margin: 12px 0; }
-.answer-table table { border-collapse: collapse; font-size: .9em; min-width: min(100%, 320px); }
-.answer-table :is(th, td) { border: 1px solid var(--bd-strong); padding: 8px 12px; }
-.answer-table th { background: rgba(255,255,255,.06); font-weight: 650; }
+.answer-table { overflow-x: auto; margin: 16px 0; border: 1px solid var(--bd-strong); border-radius: 10px; }
+.answer-table table { border-collapse: collapse; width: 100%; font-size: .88em; min-width: 360px; text-align: left; line-height: 1.5; }
+.answer-table :is(th, td) { border-bottom: 1px solid var(--bd-hair); padding: 10px 14px; vertical-align: top; }
+.answer-table th { background: rgba(127,176,249,.1); color: #cfe0ff; font-weight: 650; }
+.answer-table tr:nth-child(even) td { background: rgba(255,255,255,.025); }
+.answer-table tr:last-child td { border-bottom: 0; }
+.answer-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 18px; user-select: none; }
+.answer-copy { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border: 1px solid var(--bd-hair); border-radius: 7px; background: transparent; color: #bcc7d9; font: 500 11px var(--font); cursor: pointer; }
+.answer-copy:hover { color: #fff; background: var(--fill-2); border-color: var(--bd-strong); }
+.answer-copy:disabled { opacity: .65; }
 .answer-math { overflow-wrap: normal; }
 .answer-math .katex { font-size: 1.06em; line-height: 1.3; }
 .answer-math-display { display: block; max-width: 100%; overflow-x: auto; overflow-y: hidden; padding: 8px 4px; }

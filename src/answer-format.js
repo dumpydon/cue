@@ -98,8 +98,9 @@ markdown.renderer.rules.fence = (tokens, index) => {
   } catch (_) { /* Unrecognized or incomplete code stays escaped plain text. */ }
   if (!hljs.getLanguage(language)) language = 'plaintext';
   const label = LABELS[language] || language;
-  return `<div class="answer-code"><div class="answer-code-header"><span class="answer-code-language">${escape(label)}</span>` +
-    `<button class="answer-code-copy" type="button" aria-label="Copy ${escape(label)} code">Copy code</button></div>` +
+  return `<div class="answer-code"><div class="answer-code-header"><span class="answer-code-language">${escape(label)}</span><div class="answer-code-actions">` +
+    `<button class="answer-code-wrap" type="button" aria-label="Wrap ${escape(label)} code" aria-pressed="false">Wrap</button>` +
+    `<button class="answer-code-copy" type="button" aria-label="Copy ${escape(label)} code">Copy code</button></div></div>` +
     `<pre><code class="hljs language-${escape(language)}">${value}</code></pre></div>\n`;
 };
 markdown.renderer.rules.code_block = markdown.renderer.rules.fence;
@@ -110,17 +111,66 @@ function render(text) {
   catch (_) { return `<p class="answer-plain">${escape(source)}</p>`; }
 }
 
+// Copy from Markdown tokens rather than the rendered DOM: KaTeX contains both
+// visual and accessibility trees, and DOM text would duplicate each equation.
+function toPlainText(text) {
+  const source = String(text || '');
+  try {
+    const inline = tokens => tokens.map(token => {
+      if (token.type === 'softbreak' || token.type === 'hardbreak') return '\n';
+      if (token.type === 'image') return token.content;
+      if (token.children) return inline(token.children);
+      return token.nesting === 0 ? token.content : '';
+    }).join('');
+    const lists = [];
+    let output = '';
+    for (const token of markdown.parse(source, {})) {
+      if (token.type === 'inline') output += inline(token.children || []);
+      else if (token.type === 'fence' || token.type === 'code_block') output += token.content + '\n';
+      else if (token.type === 'answer_math_block') output += token.content + '\n\n';
+      else if (token.type === 'bullet_list_open') lists.push({ ordered: false });
+      else if (token.type === 'ordered_list_open') lists.push({ ordered: true, next: Number(token.attrGet('start')) || 1 });
+      else if (token.type === 'bullet_list_close' || token.type === 'ordered_list_close') { lists.pop(); output += '\n'; }
+      else if (token.type === 'list_item_open') {
+        if (output && !output.endsWith('\n')) output += '\n';
+        const list = lists.at(-1);
+        output += '  '.repeat(Math.max(0, lists.length - 1)) + (list?.ordered ? `${list.next++}. ` : '• ');
+      } else if (token.type === 'paragraph_close') output += lists.length ? '\n' : '\n\n';
+      else if (token.type === 'heading_close' || token.type === 'blockquote_close' || token.type === 'table_close') output += '\n\n';
+      else if (token.type === 'th_close' || token.type === 'td_close') output += '\t';
+      else if (token.type === 'tr_close') output = output.replace(/\t+$/, '') + '\n';
+      else if (token.type === 'hr') output += '\n';
+    }
+    return output.trimEnd();
+  } catch (_) { return source; }
+}
+
+function setCodeWrap(block, wrapped) {
+  block.classList.toggle('wrapped', wrapped);
+  const button = block.querySelector('.answer-code-wrap');
+  if (button) { button.setAttribute('aria-pressed', String(wrapped)); button.textContent = wrapped ? 'Unwrap' : 'Wrap'; }
+}
+
 function installCopy({ document, copyText, onError = () => {} }) {
   document.addEventListener('click', async event => {
-    const button = event.target.closest?.('.answer-code-copy');
+    const wrap = event.target.closest?.('.answer-code-wrap');
+    if (wrap) { const block = wrap.closest('.answer-code'); if (block) setCodeWrap(block, !block.classList.contains('wrapped')); return; }
+    const button = event.target.closest?.('.answer-code-copy, .answer-copy');
     if (!button || button.disabled) return;
-    const code = button.closest('.answer-code')?.querySelector('pre code');
-    if (!code) return;
+    let text;
+    if (button.matches('.answer-code-copy')) text = button.closest('.answer-code')?.querySelector('pre code')?.textContent;
+    else {
+      const answer = button.closest('.answer-actions')?.previousElementSibling;
+      if (!answer?.matches('.answer-content')) return;
+      text = button.dataset.format === 'markdown' ? answer.dataset.raw : toPlainText(answer.dataset.raw);
+    }
+    if (text == null) return;
+    const label = button.textContent;
     button.disabled = true;
-    try { await copyText(code.textContent); button.textContent = 'Copied'; }
-    catch (error) { button.textContent = 'Try again'; onError(error.message || 'Code could not be copied.'); }
-    finally { setTimeout(() => { button.disabled = false; button.textContent = 'Copy code'; }, 1400); }
+    try { await copyText(text); button.textContent = 'Copied'; }
+    catch (error) { button.textContent = 'Try again'; onError(error.message || 'The answer could not be copied.'); }
+    finally { setTimeout(() => { button.disabled = false; button.textContent = label; }, 1400); }
   });
 }
 
-module.exports = { render, installCopy };
+module.exports = { render, toPlainText, setCodeWrap, installCopy };
