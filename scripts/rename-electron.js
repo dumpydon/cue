@@ -42,14 +42,11 @@ if (!src && fs.existsSync(target)) {
 fs.writeFileSync(pathTxt, DISPLAY_NAME);
 console.log(`[postinstall] path.txt -> ${DISPLAY_NAME}`);
 
-// ── Step 3: Patch PE version info (retry a few times — Defender may scan briefly) ─
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
 // ── Step 3: Patch PE version info + icon (retry — Defender may scan briefly) ─
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function extractEdgeIcons() {
-  const { NtExecutable, NtExecutableResource, Resource, Data } = require('resedit');
+  const { NtExecutable, NtExecutableResource, Data } = require('resedit');
   // Prefer msedge.exe — has modern 32bpp PNG icons (256x256) that Windows renders properly.
   // MicrosoftEdgeUpdate.exe only has old 4bpp/8bpp BMP icons Task Manager ignores.
   const edgeSources = [

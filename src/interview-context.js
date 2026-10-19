@@ -98,7 +98,7 @@ function detectCategory(transcript) {
   return 'general';
 }
 
-// ── Resume parser (carried over from resume-context.js) ───────────────────────
+// ── Resume parser ────────────────────────────────────────────────────────────
 const SECTION_PATTERNS = [
   { key: 'name',       re: null, label: null },
   { key: 'summary',    re: /(?:summary|objective|profile|about)[^\n]*\n([\s\S]{20,400}?)(?=\n[A-Z]|\n\n[A-Z]|$)/i,      label: 'Summary' },
@@ -260,23 +260,4 @@ function buildInterviewContext(settings, mode, transcript) {
   return blocks.join('\n\n') + tailorNote;
 }
 
-// ── Legacy compat ─────────────────────────────────────────────────────────────
-function buildResumeContext(resumeText, jobDescription, mode) {
-  if (!resumeText || !String(resumeText).trim()) return null;
-  if (typeof jobDescription === 'number') {
-    const cleaned = String(resumeText).trim().replace(/\s+/g, ' ');
-    const limit = jobDescription || 1200;
-    const clipped = cleaned.length > limit ? cleaned.slice(0, limit).trimEnd() + '…' : cleaned;
-    return ['Candidate resume context:', clipped, 'Use this resume information when answering questions about the candidate.'].join('\n');
-  }
-  // Lightweight: no transcript available, just wrap resume+JD
-  const rb = buildResumeBlock(resumeText, 1800);
-  const jb = buildJDBlock(jobDescription || '', 600);
-  const parts = [];
-  if (rb) parts.push('=== Your Background ===\n' + rb);
-  if (jb) parts.push(jb);
-  if (!parts.length) return null;
-  return parts.join('\n\n');
-}
-
-module.exports = { buildInterviewContext, buildResumeContext, detectCategory, parseResume };
+module.exports = { buildInterviewContext, detectCategory, parseResume };

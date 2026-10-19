@@ -1,28 +1,20 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildResumeContext, parseResume } = require('../src/resume-context');
-const { buildInterviewContext, detectCategory } = require('../src/interview-context');
+const { buildInterviewContext, detectCategory, parseResume } = require('../src/interview-context');
 
-// ── buildResumeContext (backward-compat shim) ─────────────────────────────────
-test('buildResumeContext returns a structured prompt block for resume text', () => {
+// ── Active resume context ────────────────────────────────────────────────────
+test('buildInterviewContext returns a structured prompt block for resume text', () => {
   const resume = 'Jane Doe\nSoftware Engineer\n\nSkills\nJavaScript, Node.js\n\nExperience\n3 years at Acme Corp';
-  const result = buildResumeContext(resume, '', 'say');
+  const result = buildInterviewContext({ resumeText: resume }, 'say', []);
   assert.ok(result !== null, 'should not be null');
   assert.match(result, /Your Background/i);
   assert.match(result, /Jane Doe/);
   assert.match(result, /JavaScript/);
 });
 
-test('buildResumeContext returns null for empty input', () => {
-  assert.equal(buildResumeContext('', '', 'say'), null);
-  assert.equal(buildResumeContext(null, '', 'say'), null);
-});
-
-test('buildResumeContext still works with legacy (text, limit) signature', () => {
-  const resume = 'Jane Doe\nSoftware Engineer\nSkills: JavaScript, Node.js';
-  const result = buildResumeContext(resume, 200);
-  assert.ok(result !== null);
-  assert.match(result, /Jane Doe/);
+test('buildInterviewContext returns null for empty resume context', () => {
+  assert.equal(buildInterviewContext({ resumeText: '' }, 'say', []), null);
+  assert.equal(buildInterviewContext({ resumeText: null }, 'say', []), null);
 });
 
 // ── parseResume ───────────────────────────────────────────────────────────────

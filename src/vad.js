@@ -2,10 +2,6 @@
 // This is a lightweight VAD that runs in the main process on the PCM buffers.
 // It provides much better segmentation than a simple RMS gate by tracking
 // speech onset, continuation, and offset with hysteresis.
-//
-// For the renderer side, we integrate @ricky0123/vad-web (Silero VAD via ONNX)
-// which is the gold standard for browser-based VAD. This file handles the
-// server/main-process side.
 
 class AdaptiveVAD {
   constructor(options = {}) {
@@ -41,7 +37,6 @@ class AdaptiveVAD {
   // Process a chunk of Int16 PCM audio
   processChunk(pcmBuffer) {
     if (this._remainder.length) pcmBuffer = Buffer.concat([this._remainder, pcmBuffer]);
-    const samples = pcmBuffer.length / 2;
     let offset = 0;
 
     while (offset + this.frameSize * 2 <= pcmBuffer.length) {

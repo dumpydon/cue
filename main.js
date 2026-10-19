@@ -79,7 +79,6 @@ const shortcutNotifications = [];
 const shortcutState = { assist: false, say: false, leetcode: false, quit: false, hide: false };
 const isMac = process.platform === 'darwin';
 const isWindows = process.platform === 'win32';
-const isLinux = process.platform === 'linux';
 const ownsInstanceLock = app.requestSingleInstanceLock();
 if (!ownsInstanceLock) app.quit();
 app.on('second-instance', () => showMainWindow());

@@ -121,8 +121,6 @@
     updateLatestAnswer();
   });
 
-  function esc(s) { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
-
   let answerRenderTimer = null;
   function renderAnswer(element, streaming) {
     const follow = nearLatestAnswer();
@@ -204,7 +202,6 @@
   // ---- toast helper ------------------------------------------------------
   // FIX #7: Toast queue system — ensures latest toast wins cleanly without stacking
   let toastTimer = null;
-  let toastFadeTimer = null;
   function showToast(message, ms) {
     let el = document.getElementById('toast');
     if (!el) {
@@ -214,7 +211,6 @@
     }
     // Clear any pending timers to prevent overlap
     clearTimeout(toastTimer);
-    clearTimeout(toastFadeTimer);
     // Immediately update content (no stacking)
     el.textContent = message;
     el.classList.add('show');
@@ -1367,35 +1363,6 @@
     btn.classList.toggle('hidden', same);
     if (same) return;
     btn.title = 'Fast: ' + (fast || 'fast model') + ' · Smart: ' + (smart || 'smart model') + ' (higher quality, ~2× slower)';
-  }
-
-  // ---- microphone permission banner --------------------------------------
-  function showMicPermissionBanner() {
-    let banner = document.getElementById('mic-perm-banner');
-    if (banner) { banner.classList.add('show'); return; }
-    banner = document.createElement('div');
-    banner.id = 'mic-perm-banner';
-    banner.className = 'show';
-    banner.innerHTML =
-      '<div class="mic-perm-text">' +
-        '<strong>🎙️ Microphone access required</strong><br>' +
-        'cue needs microphone permission to hear you during calls. Grant access in System Settings, then restart cue.' +
-      '</div>' +
-      '<div class="mic-perm-actions"></div>';
-    const actions = banner.querySelector('.mic-perm-actions');
-    if (cue.platform === 'darwin') {
-      const openBtn = document.createElement('button');
-      openBtn.textContent = 'Open Microphone Settings';
-      openBtn.addEventListener('click', () => cue.openPane('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'));
-      actions.appendChild(openBtn);
-    }
-    const dismissBtn = document.createElement('button');
-    dismissBtn.textContent = 'Dismiss';
-    dismissBtn.className = 'dismiss';
-    dismissBtn.addEventListener('click', () => banner.classList.remove('show'));
-    actions.appendChild(dismissBtn);
-    const panel = document.getElementById('panel');
-    panel.insertBefore(banner, document.getElementById('action-row'));
   }
 
   if (isMac) document.getElementById('spotlight-settings').classList.remove('hidden');

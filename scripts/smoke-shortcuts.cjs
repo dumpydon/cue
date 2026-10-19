@@ -51,6 +51,9 @@ app.on('browser-window-created', (_event, win) => {
     try {
       await until(active, 'expanded visible Cue owns actions');
       assert.equal(await js('window.cue.settingsGet().then(s=>Object.values(s.apiKeys).every(key=>!key))'), true);
+      // Fresh launches start in incognito, so enter visible mode explicitly
+      // before exercising the tray menu that is only present in that mode.
+      await js('window.cue.protectionSet(false)');
       const item = id => menu.getMenuItemById(id);
       item('visibility').click(); await until(released, 'tray Hide releases action keys');
       assert.equal(item('visibility').label, 'Show Cue');
