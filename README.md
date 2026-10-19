@@ -6,7 +6,7 @@
 
 A free, self-hosted alternative to Cluely. Bring your own AI key (OpenAI · Anthropic · Google Gemini · Azure AI Foundry . OpenAI-compatible endpoints).
 
-<img src="docs/tutorial.png" width="620" alt="cue first-run tutorial" />
+[Website](https://cue.dumpydon.workers.dev/) · [Download for Mac](https://cue.dumpydon.workers.dev/install/) · [Launch film](https://cue.dumpydon.workers.dev/#film)
 
 </div>
 
@@ -72,22 +72,23 @@ The overlay can be parked beyond the left, right, or bottom screen edge, keeping
 
 ## Install
 
-Option A is the easiest on both platforms. Use Option B if you'd rather run from source.
+The current downloadable developer preview is for Mac. Windows and Linux can be built from source.
 
 ### Option A — Download the app (easiest)
 
-Go to the [**Releases**](../../releases) page, then choose your platform:
+Use the [**Mac installation guide**](https://cue.dumpydon.workers.dev/install/) or [**GitHub Releases**](https://github.com/dumpydon/cue/releases), then choose your chip:
 
-- **Windows 10/11 (x64):** download **`cue-win-x64.exe`**, run it, and launch cue from the Start menu. The installer is unsigned, so Windows SmartScreen may show an **Unknown publisher** warning.
 - **macOS (Apple Silicon):** download **`cue-…-mac-arm64.zip`**, unzip it, drag **`cue.app`** into **Applications**, and open it.
 - **macOS (Intel):** download **`cue-…-mac-x64.zip`**, unzip it, drag **`cue.app`** into **Applications**, and open it.
+
+**Developer preview:** these builds use a local development signing certificate. They are **not signed with an Apple Developer ID and are not Apple-notarized**. macOS may block the first launch; the installation guide explains the normal **Privacy & Security → Open Anyway** flow. Bring your own AI provider key in Settings. The pinned local transcription runtime is included; local speech models download separately. Exact file sizes, source revision, and SHA-256 checksums accompany the download.
 
 ### Option B — Run from source (macOS or Windows)
 
 You need [Node.js](https://nodejs.org) 22.12+ installed (required by dev dependencies). No Xcode and no Visual Studio build tools required — cue deliberately avoids native modules.
 
 ```bash
-git clone https://github.com/Blueturboguy07/cue.git
+git clone https://github.com/dumpydon/cue.git
 cd cue
 npm install
 npm start
@@ -102,7 +103,7 @@ npm run pack:win    # unpacked Windows app -> dist/win-unpacked/cue.exe
 npm run dist:mac    # macOS zip            -> dist/
 npm run dist:win    # Windows installer    -> dist/cue-win-x64.exe
 ```
-> **macOS signing:** an ad-hoc signature identifies one exact build and can break capture grants after an update. Use a persistent signing certificate for local development and Apple Developer ID signing plus notarization for public releases. A locally created development certificate is not suitable for distribution.
+> **macOS signing:** an ad-hoc signature identifies one exact build and can break capture grants after an update. Use a persistent signing certificate for local development. Stable public releases require Apple Developer ID signing and notarization. The explicitly approved developer preview is an exception, clearly labeled with its local signing and non-notarized status.
 
 When an approved local identity has been configured in Keychain, finalize the bundle and run `node scripts/sign-local-macos.cjs /path/to/cue.app`. The signer reads its public certificate fingerprint from `~/Library/Application Support/Cue Development/local-signing.json`, requires a certificate-bound identity, and verifies continuity with the previously saved designated requirement. The private key stays in Keychain. Do not edit or re-sign the installed bundle afterward with `--sign -`. Alternatively, `CUE_LOCAL_SIGN_IDENTITY` selects a local certificate explicitly during electron-builder packaging; it never enables public-release notarization.
 
@@ -148,7 +149,9 @@ Screen-based help and listening require the corresponding OS permission. When yo
 
 ### Step 2 — Pick how cue answers: publik API (default) or your own key
 
-The packaged builds from the Releases page run on **publik API** by default.
+**This repository's developer preview uses your own provider keys.** Open Settings → API Keys, select a provider, and add your key. API usage is billed by that provider. Local transcription can run without a speech-provider key once a model is downloaded.
+
+The optional upstream **publik API** integration remains available in specially configured builds. It is not bundled with a service credential in this developer preview. The following describes that optional integration:
 You need no account and no key to open cue. The first-run guide shows a short
 disclosure. It states the price: every request costs 50% of the model's
 published list price. It also states the average cost: most people spend
@@ -279,7 +282,6 @@ renderer ──────┴─ the glass UI + mic capture + system-audio loop
 
 ## Troubleshooting
 
-**"It says give access, but I already gave access." (macOS)**
 **Local transcription says the runtime is not prepared.**
 Packaged releases include the runtime. If you are running from source, run `npm run prepare:whisper` once and restart Cue. On macOS, install CMake and Xcode command-line tools first.
 
@@ -290,10 +292,10 @@ Open **Settings → Audio**, select the model, and choose **Download**. A cancel
 Try `base.en`, `tiny.en`, or a quantized `q5`/`q8` model. Model size in Settings is the download size, not a guarantee of runtime RAM use; larger models require substantially more memory and CPU/GPU time.
 
 **"It says give access, but I already gave access."**
-You probably granted an older build. Because the app is ad-hoc signed, a rebuild changes its identity and macOS stops honoring the old grant (the checkmark can linger). Toggle cue **off and on** in System Settings → Screen Recording, or remove and re-add it.
+Use the app's Permissions screen and **Check Again**, then restart the same installed copy once if macOS requests it. Keep one installed Cue bundle. Different signing identities or duplicate app copies can leave stale grants. If needed, the explicit **Repair Cue’s screen grant** action resets only Cue's Screen Recording grant; ordinary startup and checks never reset permissions.
 
 **"What should I say?" or "Recap" never hear the other person (macOS).**
-Expected — meeting audio is Windows-only (see [Platform support](#platform-support)). Your own mic still transcribes, so those features see the *You* side of the conversation but never the *Them* side.
+Meeting audio is supported on macOS 14.4+. Turn on **Settings → Audio → Meeting audio**, grant Screen Recording, and start a session. Check that both the **You** and **Them** channels appear in transcription history. Local speech requires a downloaded model; cloud speech requires the selected provider's credentials.
 
 **cue has no dock or taskbar icon — how do I quit it?**
 That's deliberate; it stays out of your way. Press **`Ctrl` `Shift` `X`** (**`⌘` `⇧` `X`** on macOS). If the shortcut didn't register because another app claimed it, end the **cue** (or **electron**) process in Task Manager / Activity Monitor.
@@ -314,21 +316,23 @@ Confirm the Base URL includes the endpoint's `/v1` path when required, the selec
 Set Zoom's **Screen capture mode** to *"Advanced capture with window filtering"* (see Step 3). And remember: on macOS 15.4+ this can still fail — it's best-effort.
 
 **"cue is damaged and can't be opened."**
-Run `xattr -cr /Applications/cue.app` in Terminal once (see Install → Option A).
+Download a fresh copy from the official Cue page, check its SHA-256 against the published manifest, and follow the [installation guide](https://cue.dumpydon.workers.dev/install/). The developer preview is not Apple-notarized; macOS's normal **Privacy & Security → Open Anyway** approval may be needed.
 
 ---
 
 ## Privacy
 
-- No Cue accounts, hosted service, or telemetry. cue collects nothing.
+- Cue has no required account or app telemetry. The website is hosted on Cloudflare; AI requests use your selected providers.
 - Your API keys live in a local file (`cue-data.json`) and are sent only to the provider you chose.
 - When Custom is selected, its API key and LLM request data are sent to the Base URL you configured.
 - Your optional résumé text also lives in `cue-data.json` and is sent with each model request to your selected AI provider. It is stored as plain text; clear it in Settings to remove it.
 - In Local transcription mode, microphone and meeting audio stay on your computer. In cloud transcription modes, audio is sent only to the selected speech provider.
-- Audio utterances and the current transcript stay in memory; Cue does not write captured audio to disk. Downloaded local model files remain on disk until you delete them.
+- Saved sessions can contain transcripts, answers, and notes on this Mac. Local speech processing may use temporary audio files; cloud speech sends audio to the chosen provider. Downloaded local model files remain on disk until you delete them. See the [privacy page](https://cue.dumpydon.workers.dev/privacy/) for details.
 - Screenshots are sent to your selected chat provider only when a feature needs the screen.
 
 ## Contributing
+
+The public website, original film source, deployment configuration, and release manifest live in [`site/`](site/README.md), in this same repository. Website dependencies and builds are separate from the desktop app.
 
 Issues and PRs welcome. cue is intentionally small and readable — `main.js` (app + capture + AI), `renderer/` (the UI), `src/` (providers). No build step for the source (plain HTML/CSS/JS).
 

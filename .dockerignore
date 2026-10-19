@@ -1,0 +1,7 @@
+**
+!site/
+!site/**
+site/node_modules/
+site/.wrangler/
+site/film-src/.render-cache/
+site/film-src/previews/

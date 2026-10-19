@@ -35,3 +35,7 @@ test-resume.js
 
 # Electron dist cache
 node_modules/electron/dist/electron.exe.bak
+
+# Website deployment/runtime state and generated review artifacts
+site/.wrangler/
+site/film-src/previews/

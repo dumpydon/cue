@@ -1,0 +1,10 @@
+{
+  "version": "0.4.14",
+  "status": "preparing",
+  "publishedAt": null,
+  "minimumMacOS": "14.4",
+  "signing": "pending",
+  "repository": "https://github.com/dumpydon/cue",
+  "releaseNotes": "https://github.com/dumpydon/cue/releases",
+  "assets": {}
+}

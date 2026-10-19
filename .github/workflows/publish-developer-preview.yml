@@ -1,0 +1,35 @@
+name: Publish verified Cue developer preview
+on:
+  push:
+    branches: [main]
+    paths: ['site/release.json', '.github/workflows/publish-developer-preview.yml', 'site/scripts/collect-release.mjs', 'site/scripts/publish-preview.mjs']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: cue-developer-preview
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Read the approved preview manifest
+        id: preview
+        run: |
+          node - <<'JS'
+          const fs=require('node:fs'),r=require('./site/release.json');
+          const ready=r.status==='developer-preview'&&Object.keys(r.assets||{}).length>0;
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,`ready=${ready}\ntag=v${r.version}-preview.1\nversion=${r.version}\nsource=${r.sourceCommit||''}\n`);
+          JS
+      - name: Collect exact public artifacts and verify checksums
+        if: steps.preview.outputs.ready == 'true'
+        run: node site/scripts/collect-release.mjs
+      - name: Publish a clearly labeled prerelease
+        if: steps.preview.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node site/scripts/publish-preview.mjs

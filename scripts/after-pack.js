@@ -34,6 +34,6 @@ module.exports = async function afterPack(context) {
     return;
   }
 
-  const outputDirectory = path.join(context.appOutDir, 'resources', 'whisper-runtime');
+  const outputDirectory = path.join(context.packager.getResourcesDir(context.appOutDir), 'whisper-runtime');
   await prepareWhisperRuntime({ platform, architecture, outputDirectory });
 };

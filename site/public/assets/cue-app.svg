@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect x="64" y="76" width="896" height="884" rx="200" fill="#05080b" fill-opacity=".5"/>
+  <rect x="64" y="64" width="896" height="884" rx="200" fill="#111317" stroke="#454a50" stroke-opacity=".55" stroke-width="3"/>
+  <svg x="132" y="126" width="760" height="760" viewBox="0 0 256 256" fill="none">
+
+  <!-- A watch bezel and curved face, rather than a flat hourglass glyph. -->
+  <defs>
+    <mask id="stud-gaps" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
+      <rect width="256" height="256" fill="#fff"/>
+      <g fill="#000">
+        <circle cx="128" cy="25" r="15"/><circle cx="231" cy="128" r="15"/>
+        <circle cx="128" cy="231" r="15"/><circle cx="25" cy="128" r="15"/>
+      </g>
+    </mask>
+  </defs>
+  <circle cx="128" cy="128" r="103" stroke="#f5f5f3" stroke-width="12" mask="url(#stud-gaps)"/>
+  <circle cx="128" cy="128" r="86" stroke="#f5f5f3" stroke-width="5"/>
+  <!-- The curved caps follow the circular dial; the side cutouts form the X. -->
+  <path d="M75 75A74.953 74.953 0 0 1 181 75L146 128 181 181A74.953 74.953 0 0 1 75 181L110 128Z" fill="#f5f5f3"/>
+  <!-- Four indicator studs interrupt the outer bezel, as on the reference. -->
+  <g fill="#f5f5f3">
+    <circle cx="128" cy="25" r="9"/>
+    <circle cx="231" cy="128" r="9"/>
+    <circle cx="128" cy="231" r="9"/>
+    <circle cx="25" cy="128" r="9"/>
+  </g>
+  </svg>
+</svg>
