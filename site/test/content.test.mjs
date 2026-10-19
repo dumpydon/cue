@@ -11,8 +11,8 @@ test('the film range metadata matches the exact published movie', async () => {
   assert.equal(bytes.length, metadata.bytes); assert.equal(createHash('sha256').update(bytes).digest('hex'), metadata.sha256);
 });
 test('public navigation and media references resolve to built local files',async()=>{
-  const publicRoot=path.join(site,'public');
-  for(const name of ['index.html','privacy/index.html','install/index.html','404.html']){
+  const publicRoot=path.resolve(site,'../dist/site');
+  for(const name of ['index.html','privacy/index.html','install/index.html','changelog/index.html','tour/index.html','first-launch/index.html','404.html']){
     const html=await fs.readFile(path.join(publicRoot,name),'utf8');
     for(const [,reference] of html.matchAll(/(?:src|href)="(\/[^"?#]*)"/g)){
       if(reference==='/release.json'||reference.startsWith('/get/'))continue;
@@ -23,10 +23,10 @@ test('public navigation and media references resolve to built local files',async
   }
 });
 test('the site offers a real non-JavaScript installation path and film fallback',async()=>{
-  const html=await fs.readFile(path.join(site,'public/index.html'),'utf8');
+  const html=await fs.readFile(path.resolve(site,'../dist/site/index.html'),'utf8');
   const ctas=[...html.matchAll(/<a\b([^>]*data-download[^>]*)>/g)];
   assert.ok(ctas.length>=3);assert.ok(ctas.every(([,attrs])=>attrs.includes('href="/install/"')));
-  assert.match(html,/<video[^>]*controls/);assert.match(html,/\/media\/cue-launch\.mp4">Download the film/);
+  assert.match(html,/<video[^>]*controls/);assert.match(html,/\/media\/cue-launch\.mp4\?v=[a-f0-9]+">Download the film/);
   assert.match(html,/best effort|Some macOS capture tools can still show/);
 });
 test('every ready release declares exact integrity and signing metadata',async()=>{

@@ -130,6 +130,10 @@ export function createHandler(manifest = release) {
       }
       const response = new Response(upstream.body, upstream);
       for (const [key, value] of Object.entries(securityHeaders)) response.headers.set(key, value);
+      if (url.pathname === '/first-launch/' || url.pathname === '/first-launch/index.html') {
+        response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+        response.headers.set('Content-Security-Policy', securityHeaders['Content-Security-Policy'].replace("frame-ancestors 'none'", "frame-ancestors 'self'"));
+      }
       if (/\.(?:mp4|jpg|png|svg|woff2)$/.test(url.pathname)) response.headers.set('Cache-Control','public, max-age=86400');
       if (url.pathname.endsWith('.mp4')) response.headers.set('Accept-Ranges','bytes');
       if (url.pathname.endsWith('.html') || url.pathname.endsWith('/') || url.pathname === '/release.json') response.headers.set('Cache-Control', 'public, max-age=0, must-revalidate');

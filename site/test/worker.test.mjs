@@ -63,6 +63,15 @@ test('the public website is read-only and denies capture permissions in browsers
   const f=fixture();let response=await f.handler.fetch(new Request('https://cue.example/',{method:'POST'}),f.env);assert.equal(response.status,405);
   response=await f.handler.fetch(new Request('https://cue.example/'),f.env);assert.equal(response.status,200);assert.match(response.headers.get('Permissions-Policy'),/microphone=\(\)/);assert.match(response.headers.get('Content-Security-Policy'),/script-src 'self'/);assert.equal(response.headers.get('X-Content-Type-Options'),'nosniff');
 });
+test('only the first-launch illustration can be embedded by this same website', async () => {
+  const f=fixture();
+  let response=await f.handler.fetch(new Request('https://cue.example/first-launch/?embed=1'),f.env);
+  assert.equal(response.headers.get('X-Frame-Options'),'SAMEORIGIN');
+  assert.match(response.headers.get('Content-Security-Policy'),/frame-ancestors 'self'/);
+  response=await f.handler.fetch(new Request('https://cue.example/privacy/'),f.env);
+  assert.equal(response.headers.get('X-Frame-Options'),'DENY');
+  assert.match(response.headers.get('Content-Security-Policy'),/frame-ancestors 'none'/);
+});
 test('film seeking receives correct partial bytes when the static binding ignores Range', async () => {
   const handler = createHandler({ assets: {} });
   const env = { ASSETS: { fetch: async () => new Response(bytes, { headers: { 'Content-Type': 'video/mp4', 'Content-Length': String(bytes.length), ETag: '"film"' } }) } };

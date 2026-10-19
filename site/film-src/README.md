@@ -1,65 +1,58 @@
-# Cue — original launch film
+# Cue launch film — photographic production edit
 
-A 27-second, 1920 × 1080, 30 fps original film. The laptop, desktop wallpaper,
-all conversation content, UI panels, typography, camera movement, and sound are
-generated from this source. The only existing visual asset is Cue's own
-`renderer/assets/cue-mark.svg`, copied here as `cue-mark.svg`.
+The replacement is **19 seconds, 1920 × 1080, 60 fps**, with H.264 High video and AAC audio. It uses the same photographed laptop, white studio backdrop, native SF typography, and soundtrack as the owner's explicitly authorized public Glee film. Every displayed Cue screen, conversation, code example, mode panel, and end card is synthetic and created by this source. The rejected drawn laptop film is no longer the production source.
 
-No competitor footage, stock music, real screen captures, user transcripts,
-credentials, or network requests are used.
+## Production source
+
+The source is the owner's public [Glee launch film](https://github.com/dumpydon/glee/blob/main/docs/media/glee-launch.mp4). Its recorded SHA-256 is `facd89a7e49ba1aeed09cbd916d0726e108b7c4988e067f7776741283493e625`; the exporter rejects a different source. Glee's `docs/media/README.md` and `script/create_launch_video.py` document that production edit.
+
+Glee's public 19-second edit is the hardware source. The separate Downloads production candidate ending in another brand is **not** an input to this edit. The Glee reference provided the native font configuration and presentation direction. Glee-specific screens, lid-related copy, title, and repository link are replaced or omitted. The original approved Glee AAC soundtrack is copied without transcoding.
 
 ## Reproduce
 
-From the Cue repository root, with its existing Electron installation and FFmpeg:
+Use macOS with SFNS.ttf and SFNSMono.ttf, FFmpeg, and Python 3.12. From Cue root:
 
 ```sh
-node site/film-src/export.mjs --frames-only
-node site/film-src/export.mjs
+python3.12 -m venv site/film-src/.venv
+site/film-src/.venv/bin/pip install -r site/film-src/requirements.txt
+CUE_FILM_MASTER=/path/to/glee/docs/media/glee-launch.mp4 node site/film-src/export.mjs --frames-only
+CUE_FILM_MASTER=/path/to/glee/docs/media/glee-launch.mp4 node site/film-src/export.mjs
 ```
 
-Outputs:
+Alternatively invoke the Python script directly:
 
-- `site/public/media/cue-launch.mp4` — H.264 High / yuv420p, AAC stereo, fast-start.
-- `site/public/media/cue-launch-poster.jpg` — 1600 × 900 poster.
-- `site/film.json` — exact MP4 size and checksum used for reliable byte ranges.
-- `site/film-src/previews/` — six uncompressed keyframes and poster for review.
+```sh
+site/film-src/.venv/bin/python site/film-src/create_launch_video.py --master /path/to/glee/docs/media/glee-launch.mp4
+```
 
-`--draft` creates a 1280 × 720 version named `cue-launch-draft.mp4`.
-`ELECTRON_BIN` and `FFMPEG_BIN` can override the default executable locations.
-The FFmpeg default is `/opt/homebrew/bin/ffmpeg`.
+The first run calculates screen-plane tracking and saves `tracking.json`. `--retrack` recalculates it. The tracked file permits deterministic reproduction from the same approved master. The exact original source SHA-256 is recorded in `site/film.json`. `PYTHON_BIN` overrides the Node wrapper's interpreter; `FFMPEG_BIN` overrides the `ffmpeg` executable in the Python source.
 
-`stage.js` exposes `renderFrame(seconds)`. Every animation derives from the
-supplied time, without live timers or random inputs. `render.cjs` renders 810
-frames through the local Electron canvas into FFmpeg. `export.mjs` first creates
-the quiet original oscillator soundtrack. Exact font rasterization can vary with
-the host OS; the default typefaces are Helvetica Neue / Arial and SF Mono / Menlo.
+`frame_at(frame_number, original_frame, tracking)` defines every output frame. The renderer does not use wall-clock animation or random input. PIL draws Cue's UI with actual SFNS/SFNSMono text. OpenCV tracks and composites the new entire display plane into the photographic hardware shots. FFmpeg receives all 1140 frames and copies the approved audio stream. The final extreme source zoom is omitted to avoid unstable screen tracking; Cue's end card has a longer hold.
 
-## Sequence
+## Outputs and sequence
 
-| Time | Composition |
+- `site/public/media/cue-launch.mp4` — fast-start H.264/yuv420p, AAC stereo.
+- `site/public/media/cue-launch-poster.jpg` — photographic laptop with Cue screen.
+- `site/public/media/cue-launch.vtt` — matching captions.
+- `site/film.json` — actual bytes, SHA-256, format and production provenance.
+- `site/film-src/previews/encoded-contact-sheet.jpg` — review frames extracted from the encoded movie (local review artifact, not a published asset).
+
+| Time | Content |
 | --- | --- |
-| 0–4.9 s | Close-up of original hardware and synthetic conversation |
-| 4.45–9.35 s | Full-laptop pullback and core Cue line |
-| 8.9–14.85 s | Code with syntax colors and logarithmic complexity |
-| 14.4–19.45 s | Provider choice and context inputs |
-| 19–23.35 s | Dotted incognito border and screen-share protection request |
-| 22.9–27 s | Cue end card |
+| 0–4.85 s | Real laptop opening and camera push-in, synthetic Cue screen |
+| 4.85–8 s | Screen + mic + Them; complete synthetic You/Them conversation |
+| 8–10.9 s | Complete syntax-colored Python sliding-window solution |
+| 10.9–13.8 s | Modes, provider/model choice and dotted incognito borders |
+| 13.8–15.5 s | Photographic laptop return with Cue code and product copy |
+| 15.5–19 s | Cue title and cue.dumpydon.workers.dev |
 
-Transitions overlap. The UI is a stylized illustration of supported features,
-not a literal recording of app behavior. Incognito says that Cue *requests*
-screen-share protection; it does not promise undetectability. The on-film note
-states that capture behavior varies by application and platform.
+Incognito requests screen-share protection; the film states that capture behavior varies by app and platform. It does not claim undetectability or imply closed-lid operation. No actual system audio, microphone, screen, profile, transcript, secret, or user data was captured. The film does not make a system audio compatibility claim.
 
-For web playback, start muted and inline. Respect reduced-motion preferences;
-offer play/pause and an explicit sound toggle. The audio contains no narration,
-so all product meaning is also present visually.
-
-## Verify
+## Verification
 
 ```sh
 /opt/homebrew/bin/ffprobe -v error -show_streams -show_format -of json site/public/media/cue-launch.mp4
 /opt/homebrew/bin/ffmpeg -v error -i site/public/media/cue-launch.mp4 -f null -
 ```
 
-Keyframe review uses `previews/contact-sheet.png`; it is a review artifact rather
-than a public website asset. Rendering caches and WAV intermediates are ignored.
+The film is illustrative. Supported features are represented deliberately rather than recorded from a live app. The inherited hardware footage is limited to the source master's 1080p detail. Fonts and photo rasterization can vary slightly with host/library versions; the supplied package pins match the render setup.

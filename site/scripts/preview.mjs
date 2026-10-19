@@ -11,10 +11,14 @@ await build();
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.mp4': 'video/mp4', '.webm': 'video/webm', '.woff2': 'font/woff2', '.vtt': 'text/vtt; charset=utf-8' };
 const peers = new Set();
 let timer, pending = Promise.resolve();
-watch(path.join(here, 'public'), { recursive: true }, () => {
+const rebuild = () => {
   clearTimeout(timer);
   timer = setTimeout(() => { pending = pending.then(build).then(() => { for (const peer of peers) peer.write('data: refresh\n\n'); }).catch(console.error); }, 600);
-});
+};
+watch(path.join(here, 'public'), { recursive: true }, rebuild);
+watch(path.join(here, 'components'), { recursive: true }, rebuild);
+watch(path.join(here, 'release.json'), rebuild);
+watch(path.join(here, 'film.json'), rebuild);
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');

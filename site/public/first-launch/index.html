@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Cue · 15-second first-launch guide</title>
+  <meta name="description" content="An illustrated guide to installing Cue and approving its first launch in macOS Privacy & Security.">
+  <link rel="icon" href="/assets/cue-app.svg">
+  <link rel="stylesheet" href="/styles/first-launch.css">
+  <script type="module" src="/js/first-launch.js"></script>
+<link rel="canonical" href="https://cue.dumpydon.workers.dev/first-launch/"></head>
+<body>
+<main class="player" aria-label="Illustrated Cue installation walkthrough">
+  <div class="player-heading"><span class="guide-brand"><img src="/assets/cue-app.svg" alt="" width="22" height="22">Cue <span>First launch</span></span><span class="duration-badge">15 seconds</span></div>
+  <div class="film">
+    <div class="viewport" role="img" aria-label="Illustrated macOS screens. The current step is explained immediately below.">
+      <div class="desktop" aria-hidden="true">
+        <div class="wallpaper"></div>
+        <div class="mac-menu"><span class="apple"></span><b data-menu-app>Finder</b><span data-menu-file>File</span><span>Edit</span><span>View</span><span>Window</span><span data-menu-help hidden>Help</span><i></i><span class="ready-tray"><img src="/assets/cue-mark.svg" alt=""></span><span>Mon&nbsp; 9:41 AM</span></div>
+
+        <div class="scene scene-install is-active" data-scene="0">
+          <div class="finder-window"><div class="window-toolbar"><span class="traffic"><i></i><i></i><i></i></span><b>Cue</b><span class="window-tool">⌕</span></div><div class="finder-body"><div class="installer-app"><img src="/assets/cue-app.svg" alt=""><span>Cue</span></div><span class="install-arrow">→</span><div class="installer-folder"><span class="folder"><svg viewBox="0 0 40 40" fill="none"><path d="m20 6-11 27m11-27 11 27M13 24h14" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/></svg></span><span>Applications</span></div><p>Drag Cue into Applications</p></div></div>
+          <img class="dragged-app" src="/assets/cue-app.svg" alt="">
+          <div class="file-label"><span>↓</span> Cue.zip <span class="file-check">✓</span></div>
+        </div>
+
+        <div class="scene scene-warning" data-scene="1">
+          <div class="system-dialog warning-dialog"><img class="dialog-app-icon" src="/assets/cue-app.svg" alt=""><h2>“Cue” Not Opened</h2><p>Apple could not verify “Cue” is free of malware that may harm your Mac or compromise your privacy.</p><div class="system-buttons"><span>Move to Bin</span><span class="system-primary" data-target="done">Done</span></div></div>
+          <div class="screen-note">Unverified-developer warning</div>
+        </div>
+
+        <div class="scene scene-settings" data-scene="2">
+          <div class="settings-window"><aside class="settings-sidebar"><span class="traffic"><i></i><i></i><i></i></span><b>System Settings</b><div class="settings-search">⌕ &nbsp; Search</div><span><i class="side-icon general">⚙</i>General</span><span><i class="side-icon appearance">◐</i>Appearance</span><span><i class="side-icon accessibility">◉</i>Accessibility</span><span><i class="side-icon desktop-icon">▣</i>Desktop &amp; Dock</span><span class="privacy-row" data-target="privacy"><i class="side-icon privacy"><svg viewBox="0 0 24 24" fill="none"><path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6l8-3Z" stroke="currentColor" stroke-width="1.8"/><path d="m8 12 3 3 5-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></i>Privacy &amp; Security</span></aside><div class="settings-main"><div class="settings-title"><span>‹</span><h2>Privacy &amp; Security</h2></div><div class="settings-scroll"><div class="settings-content"><div class="privacy-options"><div>Location Services <span>›</span></div><div>Contacts <span>›</span></div><div>Photos <span>›</span></div><div>Files and Folders <span>›</span></div></div><h3>Security</h3><div class="security-card"><div class="allow-row"><span>Allow applications from</span><b>App Store &amp; identified developers</b></div><div class="blocked-row"><p>“Cue” was blocked because its developer could not be verified.</p><span class="settings-button" data-target="anyway">Open Anyway</span></div></div><p class="settings-note">Approve this app individually.</p></div></div></div></div>
+        </div>
+
+        <div class="scene scene-confirm" data-scene="3">
+          <div class="system-dialog confirm-dialog"><img class="dialog-app-icon" src="/assets/cue-app.svg" alt=""><h2>Open “Cue”?</h2><p>You’re allowing this app to open on this Mac.</p><div class="authentication-note"><svg viewBox="0 0 32 32" fill="none"><path d="M8 21v-5a8 8 0 0 1 16 0v4M5 18v-2a11 11 0 0 1 22 0M12 25V16a4 4 0 0 1 8 0v8M16 16v12M8 25v3M24 24v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Touch ID or your Mac login password may be requested.</span></div><div class="system-buttons"><span>Cancel</span><span class="system-primary" data-target="open">Open</span></div></div>
+        </div>
+
+        <div class="scene scene-ready" data-scene="4"><div class="ready-panel"><div class="ready-panel-head"><img src="/assets/cue-app.svg" alt=""><b>Cue</b><span>Settings</span></div><div class="ready-panel-body"><div class="guide-modes"><b>API Keys</b><span>Audio</span><span>Style</span></div><div class="guide-provider"><span>AI provider</span><b>OpenAI <small>⌄</small></b></div><div class="guide-provider"><span>Your API key</span><b class="guide-key">••••••••••••••••••••</b></div><div class="guide-start">Save settings</div><p class="guide-key-note">Use your own provider key.<br>Capture starts when you choose.</p></div></div><div class="ready-message"><span>✓</span><h2>You’re ready.</h2><p>Your next conversation starts here.</p><small>Cue opens in incognito by default.</small></div></div>
+        <div class="demo-pointer"><span class="click-ring"></span><svg viewBox="0 0 24 28" fill="none"><path d="M3 2v21l6-5 4 8 4-2-4-8 8-1L3 2Z" fill="#fff" stroke="#08090b" stroke-width="1.7" stroke-linejoin="round"/></svg></div>
+      </div>
+    </div>
+    <div class="caption"><span class="step-label" data-step-label>01 / 05 · INSTALL</span><h1 data-step-title>Download the ZIP. Move Cue into Applications.</h1><p data-step-caption>Choose Apple silicon or Intel. Unzip the downloaded archive.</p></div>
+  </div>
+  <div class="controls"><button class="play-control" type="button" aria-label="Play the 15-second installation walkthrough"><span data-play-icon aria-hidden="true">▶</span><span data-play-text>Play</span></button><label class="timeline"><span class="sr-only">Walkthrough position</span><input type="range" min="0" max="15" step="0.05" value="0" aria-valuetext="0 seconds, Download and install"></label><span class="time" aria-hidden="true">0:00 / 0:15</span><button class="restart-control" type="button" aria-label="Restart the installation walkthrough">↻</button></div>
+  <div class="chapters" role="group" aria-label="Installation steps"><button type="button" data-step="0" aria-current="step"><span>1</span>Install</button><button type="button" data-step="1"><span>2</span>Dismiss warning</button><button type="button" data-step="2"><span>3</span>Privacy &amp; Security</button><button type="button" data-step="3"><span>4</span>Confirm</button><button type="button" data-step="4"><span>5</span>Your model</button></div>
+  <p class="illustration-note">Illustrated walkthrough · Wording and authentication can vary by macOS version.</p>
+  <noscript><ol class="written-fallback"><li>Download the ZIP for your Mac, unzip it, and move cue.app into Applications.</li><li>Try opening the app. For the unverified-developer warning, choose Done, Cancel, or OK rather than Move to Bin/Trash.</li><li>Open System Settings → Privacy &amp; Security. Scroll to Security and choose Open Anyway.</li><li>Confirm Open and authenticate on your Mac if requested.</li><li>Open Cue Settings and add your provider key.</li></ol></noscript>
+</main>
+<footer class="standalone-footer"><p>This release is locally signed and has not been notarized by Apple. Continue only if you trust this download. For a “damaged” or “will damage your computer” warning, stop and <a href="https://github.com/dumpydon/cue/issues">contact us</a>.</p><a href="/install/">Written install guide</a><span>·</span><a href="https://support.apple.com/en-us/102445" target="_blank" rel="noopener noreferrer">Apple’s first-launch guidance ↗</a><span>·</span><a href="/">Back to Cue</a></footer>
+</body>
+</html>

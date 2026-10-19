@@ -16,8 +16,8 @@ app.whenReady().then(async()=>{
   const wc=win.webContents;wc.setBackgroundThrottling(false);wc.on('console-message',(_event,level,message)=>{if(level===3)failures.push(message);});
   const js=source=>wc.executeJavaScript(source,true);
   try{
-    await win.loadURL(target);await until(()=>js("!!document.querySelector('#demo-incognito svg')"),'website enhanced');
-    await js("document.querySelectorAll('.reveal').forEach(node=>node.classList.add('is-visible'))");
+    await win.loadURL(target);await until(()=>js("document.querySelector('.dlbtn').hasAttribute('aria-controls')"),'website enhanced');
+    await js("document.querySelectorAll('.io').forEach(node=>node.classList.add('in'))");
     await wait(900);
     const screenshot=async name=>{
       await js("document.getAnimations().forEach(animation=>{if(animation.effect.getTiming().iterations!==Infinity)animation.finish();})");
@@ -34,15 +34,15 @@ app.whenReady().then(async()=>{
     await js("document.querySelector('[data-mode=design]').click()");assert.equal(await js("document.querySelector('#context-mode-title').textContent"),'System design');
     await js("document.querySelector('#visibility-slider').value=27;document.querySelector('#visibility-slider').dispatchEvent(new Event('input'))");assert.equal(await js("document.querySelector('#visibility-slider').getAttribute('aria-valuetext')"),'27 percent local view');
     await js("document.querySelector('#privacy').scrollIntoView({block:'start',behavior:'instant'})");await screenshot('desktop-privacy');
-    await js("document.querySelector('[data-download]').click()");await until(()=>js("document.querySelector('#download-dialog').open"),'download chooser');assert.equal(await js("document.activeElement.closest('#download-dialog')!==null"),true,'modal traps initial focus');await screenshot('desktop-download');await js("document.querySelector('#download-close').click()");
-    await js("document.querySelector('#film').scrollIntoView({block:'start',behavior:'instant'});document.querySelector('#film-start').click()");
-    await until(()=>js("document.querySelector('#launch-film').currentTime>0.2"),'real MP4 playback');await js("document.querySelector('#launch-film').pause()");assert.equal(await js("document.querySelector('#launch-film').muted"),true);await screenshot('desktop-film');
+    await js("document.querySelector('.hero [data-download]').click()");assert.equal(await js("document.querySelector('.hero .dlgrp').classList.contains('open')"),true,'architecture menu opens');await screenshot('desktop-download');await js("document.querySelector('.hero [data-download]').click()");
+    await js("document.querySelector('[data-tour]').click()");await until(()=>js("document.querySelector('.video-modal').open"),'film modal');assert.equal(await js("document.activeElement.classList.contains('modal-close')"),true,'modal receives focus');
+    await until(()=>js("document.querySelector('.video-modal video').currentTime>0.2"),'new MP4 playback');await js("document.querySelector('.video-modal video').pause()");assert.equal(await js("document.querySelector('.video-modal video').muted"),true);await screenshot('desktop-film');await js("document.querySelector('.modal-close').click()");
     for(const width of [390,768]){
       win.setContentSize(width,844);await wait(180);await js("window.scrollTo({top:0,behavior:'instant'})");assert.equal(await js('scrollY'),0);await overflow();await screenshot(width===390?'mobile-hero':'tablet-hero');
       await js("document.querySelector('#privacy').scrollIntoView({block:'start',behavior:'instant'})");await overflow();await screenshot(width===390?'mobile-privacy':'tablet-privacy');
-      await js("document.querySelector('[data-download]').click()");await screenshot(width===390?'mobile-download':'tablet-download');await js("document.querySelector('#download-close').click()");
+      await js("document.querySelector('.hero [data-download]').click()");await screenshot(width===390?'mobile-download':'tablet-download');await js("document.querySelector('.hero [data-download]').click()");
     }
     assert.deepEqual(network,[],'demo does not contact AI providers or third parties');assert.deepEqual(failures,[],'no website console errors');
-    clearTimeout(deadline);console.log('PASS: desktop/tablet/mobile rendering, synthetic demo tabs, mode choices, comparison, modal, MP4 playback, and no external requests.');app.quit();
+    clearTimeout(deadline);console.log('PASS: desktop/tablet/mobile rendering, synthetic demo tabs, mode choices, comparison, architecture menus, modal, MP4 playback, and no external requests.');app.quit();
   }catch(error){console.error(error);clearTimeout(deadline);app.exit(1);}
 }).catch(error=>{console.error(error);app.exit(1);});

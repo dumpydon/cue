@@ -1,11 +1,12 @@
 # Cue website
 
 The public website lives in `site/`, independently of the Electron app. It uses
-original HTML/CSS/JavaScript, an original 27-second film, and a Cloudflare Worker
-with static assets. No website account, database, AI provider, or analytics is
-required. Glee and Vigil informed the glass and spacing. The footer follows the
-owner's Glee structure and typography, with Cue's purple palette and social
-links. Cluely informed the product-demo sequence; no Cluely source or footage is used.
+HTML/CSS/JavaScript and a Cloudflare Worker with static assets. At the owner's
+request, the layout, SF/system font stack, type scale, glass navigation, feature
+rhythm, launch player, and first-launch walkthrough are adapted directly from
+the owner's Glee website. Cue uses purple accents and its own product content.
+The approved footer is preserved in `components/footer.html` with its scoped
+CSS unchanged. No website account, database, AI provider, or analytics is required.
 
 ## Work locally
 
@@ -18,6 +19,13 @@ npm run dev
 The preview is `http://127.0.0.1:8793/`. Public asset edits refresh the preview.
 Restart the server after editing server-side code. Build output is `dist/site`
 at the repository root and is ignored by Git.
+
+Page sources live in `public/`; `components/` contains shared navigation,
+downloads, launch-player, and approved footer snippets. The build resolves these
+snippets for every page and creates install cards from the verified release
+manifest. Film, poster, and caption URLs include a content revision so an old
+browser cache cannot show the previous film. Checks inspect the resulting pages
+and their local links.
 
 ```sh
 npm run check
@@ -43,11 +51,14 @@ is connected to `dumpydon/cue` with these production settings:
 
 ## Film
 
-`public/media/cue-launch.mp4` is an actual 1080p H.264/AAC film, 27 seconds long.
-Its laptop, UI, wallpaper, motion, and soundtrack are original synthetic work.
-See `film-src/README.md` to reproduce it. The player has native fallback,
-captions, seeking, sound, fullscreen, and background/offscreen pausing. The
-product illustrations are explicitly labeled; they do not capture real audio.
+`public/media/cue-launch.mp4` is a 19-second 1080p60 H.264/AAC film. It uses the
+owner-authorized Glee production footage for photographed hardware and camera
+work, composited with synthetic Cue UI, feature close-ups, SF typography, and a
+Cue end card. It replaces the earlier canvas-rendered film. See
+`film-src/README.md` to reproduce it. The Glee-style player has native fallback,
+restart, play/pause, sound, fullscreen, and background/offscreen pausing. The
+first-launch guide and product examples are illustrations; they do not capture
+audio, call AI providers, or change system settings.
 
 ## Downloads and signing
 

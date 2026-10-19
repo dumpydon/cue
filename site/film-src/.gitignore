@@ -1,3 +1,7 @@
 .render-cache/
+.venv/
+__pycache__/
 soundtrack.wav
 previews/*.png
+previews/*.jpg
+source/
