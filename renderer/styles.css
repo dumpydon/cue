@@ -146,6 +146,24 @@ html[data-window-interaction], html[data-window-interaction] * {
 #toolbar .tb-protection.on { background: rgba(255,255,255,0.14); }
 #toolbar .tb-protection:focus-visible { outline: 2px solid #7fb0f9; outline-offset: 2px; }
 #toolbar .tb-protection:disabled { cursor: default; opacity: 0.45; }
+/* The visibility light sits in the gap, centered beneath the eye / incognito
+   control. It never intercepts a click or changes the toolbar's layout. */
+#protection-dot {
+  position: absolute;
+  top: calc(100% + 1px + 6px / var(--native-zoom));
+  left: 50%;
+  width: calc(10px / var(--native-zoom));
+  height: calc(10px / var(--native-zoom));
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255,255,255,0.28);
+  pointer-events: none;
+}
+#protection-dot.visible {
+  background: #ef4444;
+  box-shadow: 0 0 0 calc(3px / var(--native-zoom)) rgba(239,68,68,0.25),
+    0 0 calc(8px / var(--native-zoom)) rgba(239,68,68,0.6);
+}
 .tb-hide { gap: 6px; padding: 5px 12px 5px 10px; border-radius: var(--r-pill); font-size: 13px; font-weight: 500; }
 .tb-hide:hover { background: rgba(255,255,255,0.08); }
 .tb-hide .chev { width: 14px; height: 14px; display: inline-flex; color: rgba(255,255,255,0.9); }

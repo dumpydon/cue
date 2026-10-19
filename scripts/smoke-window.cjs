@@ -129,7 +129,11 @@ app.on('browser-window-created', (_event, win) => {
               return { x:r.x, y:r.y, width:r.width, height:r.height }; };
             const outline = getComputedStyle(document.querySelector('#panel-wrap > .incognito-outline'));
             const dots = getComputedStyle(document.querySelector('#panel-wrap > .incognito-outline rect'));
+            const light = document.querySelector('#protection-dot'), lightStyle = getComputedStyle(light);
             return { frame:rect('#panel-wrap'), panel:rect('#panel'), toolbar:rect('#toolbar'),
+              button:rect('#protection-btn'), light:rect('#protection-dot'),
+              lightColor:lightStyle.backgroundColor, lightGlow:lightStyle.boxShadow,
+              lightPointerEvents:lightStyle.pointerEvents, lightLabel:light.getAttribute('aria-label'),
               outline:rect('#panel-wrap > .incognito-outline'),
               path:rect('#panel-wrap > .incognito-outline rect'),
               font:getComputedStyle(document.querySelector('.ai-text')).fontSize,
@@ -141,6 +145,12 @@ app.on('browser-window-created', (_event, win) => {
         await waitForProtection('hat-glasses');
         const hiddenLayout = await protectionLayout();
         assert.equal(hiddenLayout.hidden, true);
+        assert.equal(hiddenLayout.lightColor, 'rgba(255, 255, 255, 0.28)');
+        assert.equal(hiddenLayout.lightGlow, 'none');
+        assert.equal(hiddenLayout.lightLabel, 'Incognito mode: screen-share protection on');
+        assert.equal(hiddenLayout.lightPointerEvents, 'none', 'visibility light never intercepts a click');
+        assert.ok(Math.abs(hiddenLayout.light.x + hiddenLayout.light.width / 2 - hiddenLayout.button.x - hiddenLayout.button.width / 2) < .5, 'light is centered below the eye');
+        assert.ok(Math.abs(hiddenLayout.light.y + hiddenLayout.light.height / 2 - hiddenLayout.toolbar.y - hiddenLayout.toolbar.height - 6) < .5, 'light sits midway in the toolbar / panel gap');
         assert.equal(hiddenLayout.diameter, '3.06px');
         assert.ok(Math.abs(parseFloat(hiddenLayout.spacing.split(',')[1]) - 1000 / 121) < 0.0001);
         assert.equal(hiddenLayout.color, 'rgb(37, 40, 36)');
@@ -166,6 +176,9 @@ app.on('browser-window-created', (_event, win) => {
         await waitForProtection('eye');
         const visibleLayout = await protectionLayout();
         assert.equal(visibleLayout.hidden, false);
+        assert.equal(visibleLayout.lightColor, 'rgb(239, 68, 68)');
+        assert.notEqual(visibleLayout.lightGlow, 'none');
+        assert.equal(visibleLayout.lightLabel, 'Visible mode: screen-share protection off');
         assert.equal(visibleLayout.opacity, '0');
         assert.deepEqual(visibleLayout.panel, visibleLayout.frame, 'visible mode restores the full panel');
         assert.deepEqual(visibleLayout.frame, hiddenLayout.frame, 'dotted border marks the original bounds');
@@ -182,11 +195,13 @@ app.on('browser-window-created', (_event, win) => {
         wc.reload(); await loaded;
         await waitForProtection('eye');
         assert.equal(await js("document.documentElement.classList.contains('incognito-mode')"), false);
+        assert.equal(await js("document.querySelector('#protection-dot').classList.contains('visible')"), true, 'reload restores the current run’s red warning');
         const before = win.protectionCalls.length;
         await js("document.querySelector('#protection-btn').click(); document.querySelector('#protection-btn').click()");
         await waitForProtection('hat-glasses');
         assert.equal(win.protectionCalls.length, before + 1, 'rapid clicks do not toggle twice');
         assert.equal(win.protectionCalls.at(-1), true);
+        assert.equal(await js("document.querySelector('#protection-dot').classList.contains('visible')"), false, 'confirmed incognito returns the light to gray');
         assert.equal(JSON.parse(fs.readFileSync(path.join(profile, 'cue-data.json'), 'utf8')).screenShareProtection, true);
         await assertArrowCursors();
         await hoverCursor('#smart-toggle', ['pointer', 'default']);
@@ -381,6 +396,7 @@ app.on('browser-window-created', (_event, win) => {
       await js("document.querySelector('#close-sidebar-btn').click(); document.querySelector('#hide-btn').click()");
       await pause(70);
       const collapsedBounds = win.getBounds();
+      assert.equal(await js("document.querySelector('#protection-dot').getBoundingClientRect().bottom <= innerHeight"), true, 'visibility light remains visible with the panel collapsed');
       await gesture('#toolbar .tb-divider', 15, 10);
       assert.equal(win.getBounds().x, collapsedBounds.x + 15, 'collapsed toolbar draggable');
       await js("document.querySelector('#hide-btn').click()");

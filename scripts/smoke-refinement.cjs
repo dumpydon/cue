@@ -63,6 +63,12 @@ app.on('browser-window-created', (_event, win) => {
       const wc = win.webContents, js = code => wc.executeJavaScript(code, true);
       await until(() => js('!!window.CueListening && !!document.querySelector("#messages .ai-text")'), 'renderer initialization');
       assert.equal(await js('window.cue.settingsGet().then(s=>Object.values(s.apiKeys).every(key=>!key))'), true);
+      // Fresh launches now default to incognito. Enter visible mode explicitly
+      // for the native tray checks, and verify the warning light follows it.
+      await until(() => js("document.querySelector('#protection-btn').dataset.icon==='hat-glasses'"), 'private startup');
+      assert.equal(await js("document.querySelector('#protection-dot').classList.contains('visible')"), false);
+      await js('window.cue.protectionSet(false)');
+      await until(() => js("document.querySelector('#protection-dot').classList.contains('visible')"), 'visible-mode warning light');
       const area = screen.getPrimaryDisplay().workArea;
       win.setBounds(geometry.restoreBounds({ windowWidth: 650, windowHeight: 560 }, area)); await pause(80);
       const initial = win.getBounds();
@@ -79,12 +85,26 @@ app.on('browser-window-created', (_event, win) => {
         return Object.fromEntries(Object.entries(rect).map(([key, value]) => [key, value * zoom]));
       }
       const original = await metrics();
+      async function assertLightPosition() {
+        const zoom = wc.getZoomFactor();
+        const light = await js(`(() => {
+          const b=document.querySelector('#protection-btn').getBoundingClientRect(),
+            d=document.querySelector('#protection-dot').getBoundingClientRect(),
+            t=document.querySelector('#toolbar').getBoundingClientRect();
+          return { offset:d.left+d.width/2-b.left-b.width/2, gap:d.top+d.height/2-t.bottom, width:d.width };
+        })()`);
+        assert.ok(Math.abs(light.offset * zoom) < 1, 'light stays centered below the eye');
+        assert.ok(Math.abs(light.gap * zoom - 6) < 1, 'light stays in the gap at every zoom');
+        assert.ok(Math.abs(light.width * zoom - 10) < 1, 'light keeps its native size');
+      }
+      await assertLightPosition();
       for (const key of ['-', '-', '-', '+', '=', '0', '+']) {
         let prevented = false;
         wc.emit('before-input-event', {preventDefault(){prevented=true;}}, {type:'keyDown',key,meta:true});
         assert.ok(prevented); await pause(80);
         assert.deepEqual(win.getBounds(), initial, 'zoom does not move or resize native window');
         const next = await metrics();
+        await assertLightPosition();
         for (const dimension of ['appWidth','panelWidth','panelLeft']) assert.ok(Math.abs(original[dimension] - next[dimension]) < 1.5, JSON.stringify({key, original, next}));
       }
       await screenshot('zoom-in');
@@ -120,6 +140,8 @@ app.on('browser-window-created', (_event, win) => {
       item('invisibility').click();
       await until(() => visibleTray.isDestroyed(), 'hidden mode removes native tray');
       assert.equal(await js('window.cue.protectionGet().then(s=>s.enabled)'), true);
+      await until(() => js("!document.querySelector('#protection-dot').classList.contains('visible')"), 'tray toggle clears the red warning');
+      await screenshot('incognito-light');
       await js('window.cue.protectionSet(false)');
       assert.ok(currentTray !== visibleTray && !currentTray.isDestroyed(), 'visible mode restores tray');
       assert.equal(await js("document.querySelector('#protection-btn').dataset.icon"), 'eye');

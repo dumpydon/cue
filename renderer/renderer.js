@@ -36,8 +36,28 @@
   document.querySelectorAll('.incognito-outline').forEach(svg => outlineObserver.observe(svg));
   window.CueWindowZoom.install({ cue }).ready.catch(error => showStatus(error.message));
   $('#tb-settings-btn').innerHTML = icon('settings', { size: 16 });
+  const protectionDot = $('#protection-dot');
+  const toolbar = $('#toolbar');
+  const positionProtectionDot = () => {
+    const bar = toolbar.getBoundingClientRect();
+    const button = $('#protection-btn').getBoundingClientRect();
+    protectionDot.style.left = (button.left + button.width / 2 - bar.left - toolbar.clientLeft) + 'px';
+  };
+  const protectionDotObserver = new ResizeObserver(positionProtectionDot);
+  // Observe controls as well: wrapping or showing the permissions button can
+  // shift the eye without changing the toolbar's outer dimensions.
+  [toolbar, ...toolbar.children].filter(element => element !== protectionDot)
+    .forEach(element => protectionDotObserver.observe(element));
+  window.addEventListener('resize', positionProtectionDot);
+  positionProtectionDot();
   window.CueProtectionToggle.install({ button: $('#protection-btn'), cue, icon,
-    onStateChange: state => document.documentElement.classList.toggle('incognito-mode', !!state.enabled),
+    onStateChange: state => {
+      document.documentElement.classList.toggle('incognito-mode', !!state.enabled);
+      protectionDot.classList.toggle('visible', !state.enabled);
+      protectionDot.setAttribute('aria-label', state.enabled
+        ? 'Incognito mode: screen-share protection on'
+        : 'Visible mode: screen-share protection off');
+    },
     onError: message => showStatus(message)
   });
   $('.tb-hide .chev').innerHTML = icon('chevron-down', { size: 14 });
