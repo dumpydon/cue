@@ -28,11 +28,17 @@ Deploy uses the authorized Cloudflare account and publishes
 tokens. The site dependency lockfile is separate from the desktop app's.
 
 GitHub Actions checks the desktop app and website independently. A ready preview
-manifest triggers the verified prerelease publisher. Production website updates
-use `npm run deploy` with Wrangler authentication. Git-triggered Cloudflare
-Builds is not connected: the available local OAuth grant can deploy Workers,
-but Cloudflare rejected access to the Builds API. No deployment token is
-embedded in the repository.
+manifest triggers the verified prerelease publisher. Cloudflare Workers Builds
+is connected to `dumpydon/cue` with these production settings:
+
+- Branch: `main`; watch path: `site/**`; root directory: `site`.
+- Node.js: `22` through the build environment's `NODE_VERSION` variable.
+- Build command: `npm ci --ignore-scripts && npm run check`.
+- Deploy command: `npx wrangler deploy`; the custom build also verifies assets.
+- Preview builds are disabled. The existing Cloudflare-managed build token is
+  kept in Cloudflare; no deployment credential is embedded in this repository.
+
+`npm run deploy` remains available for an authorized manual deployment.
 
 ## Film
 
