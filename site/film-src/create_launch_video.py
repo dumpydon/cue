@@ -19,12 +19,12 @@ import tokenize
 
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 HERE = Path(__file__).resolve().parent
 SITE = HERE.parent
 WIDTH, HEIGHT, FPS = 1920, 1080, 60
-DURATION, SOURCE_FRAMES = 34, 1140
+DURATION, SOURCE_FRAMES = 38, 1140
 FRAMES = DURATION * FPS
 FFMPEG = os.environ.get('FFMPEG_BIN', 'ffmpeg')
 SOURCE_URL = 'https://github.com/dumpydon/glee/blob/main/docs/media/glee-launch.mp4'
@@ -239,18 +239,24 @@ def ui(t,kind='chat',incognito=False):
     return im
 
 
+@lru_cache(maxsize=4)
+def desktop_wallpaper(width, height):
+    """Rasterize the exact SVG also used by the first-launch walkthrough."""
+    source=SITE/'public/assets/macos-sunrise.svg'
+    digest=hashlib.sha256(source.read_bytes()).hexdigest()[:12]
+    cache=HERE/'previews/assets'/f'macos-sunrise-{digest}.png'
+    if not cache.is_file():
+        cache.parent.mkdir(parents=True,exist_ok=True)
+        subprocess.run(['/usr/bin/sips','-s','format','png',str(source),'--out',str(cache)],
+                       check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
+    with Image.open(cache) as image:
+        return ImageOps.fit(image.convert('RGBA'),(width,height),Image.Resampling.LANCZOS)
+
+
 @lru_cache(maxsize=1)
 def wallpaper():
     w,h=2400,1560
-    xx=np.linspace(0,1,w)[None,:,None];yy=np.linspace(0,1,h)[:,None,None]
-    a=np.array([99,75,131.])[None,None,:];b=np.array([40,28,69.])[None,None,:]
-    arr=a*(1-yy)+b*yy+np.sin(xx*3+yy*2)*np.array([8,5,13.])[None,None,:]
-    arr=np.broadcast_to(arr,(h,w,3)).copy()
-    im=Image.fromarray(np.uint8(np.clip(arr,0,255))).convert('RGBA')
-    overlay=Image.new('RGBA',im.size);od=ImageDraw.Draw(overlay)
-    for i in range(5):
-        od.arc((-300+i*90,220-i*60,3000+i*120,3000+i*100),205,315,fill=(193,164,226,18),width=70)
-    im.alpha_composite(overlay.filter(ImageFilter.GaussianBlur(9)))
+    im=desktop_wallpaper(w,h).copy()
     d=ImageDraw.Draw(im)
     d.rectangle((0,0,w,76),fill='#241b36')
     mark(d,29,15,45);text(d,(96,23),'Cue',32,weight=550)
@@ -386,7 +392,7 @@ def feature_frame(t,kind,start):
 
 
 def endcard(t):
-    t=t-31+15.5
+    t=t-35+15.5
     im=white_frame()
     p=tween(t,15.5,16.24)
     # Glee's original typography and restrained blur/spring title entrance.
@@ -404,13 +410,13 @@ def endcard(t):
 
 def interview_frame(t):
     from interview_scene import render_scene
-    helpers={name:globals()[name] for name in ['text','font','rr','mark','icon','dotted','smooth','tween','COL','code','CODE']}
+    helpers={name:globals()[name] for name in ['text','font','rr','mark','icon','dotted','smooth','tween','COL','code','CODE','desktop_wallpaper']}
     return render_scene(t,helpers)
 
 
 def source_number(number):
     if number<291:return number
-    if 1758<=number<1860:return 828+number-1758
+    if 1998<=number<2100:return 828+number-1998
     return None
 
 
@@ -422,16 +428,16 @@ def frame_at(number,base,tracks):
             arr=np.asarray(screen.convert('RGB'))[:,:,::-1].copy()
             base=composite_screen(base,arr,tracks[number])
         return base
-    if t<18:return np.asarray(interview_frame(t).convert('RGB'))[:,:,::-1].copy()
-    if t<22:return feature_frame(t,'chat',18)
-    if t<26.5:return feature_frame(t,'code',22)
-    if t<29.3:return feature_frame(t,'modes',26.5)
-    if t<31:
+    if t<22:return np.asarray(interview_frame(t).convert('RGB'))[:,:,::-1].copy()
+    if t<26:return feature_frame(t,'chat',22)
+    if t<30.5:return feature_frame(t,'code',26)
+    if t<33.3:return feature_frame(t,'modes',30.5)
+    if t<35:
         source=source_number(number)
         if source in tracks:base=composite_screen(base,desktop(t),tracks[source])
         if source<906:base[40:390]=np.array([255,255,253],np.uint8)
         im=Image.fromarray(base[:,:,::-1]).convert('RGBA')
-        title_pair(im,t,29.3,'Stay in the conversation.','The right words. Right on cue.',76,1-tween(t,30.4,30.6))
+        title_pair(im,t,33.3,'Stay in the conversation.','The right words. Right on cue.',76,1-tween(t,34.4,34.6))
         return np.asarray(im.convert('RGB'))[:,:,::-1].copy()
     return endcard(t)
 
@@ -459,7 +465,7 @@ def main():
     else:tracks=stabilize_opening({int(k):np.float32(v) for k,v in json.loads((HERE/'tracking.json').read_text())['frames'].items()})
     previews=HERE/'previews';previews.mkdir(exist_ok=True)
     cap=cv2.VideoCapture(str(args.master))
-    preview_numbers=[150,285,360,510,660,780,900,1020,1200,1440,1650,1790,1980]
+    preview_numbers=[150,285,360,510,660,780,900,1020,1080,1152,1215,1290,1440,1680,1890,2030,2220]
     if args.frames_only:
         for n in preview_numbers:
             frame=frame_at(n,base_at(cap,n),tracks)
@@ -474,7 +480,8 @@ def main():
         '[1:a:0]asplit=2[first][repeat];'
         '[first]asetpts=PTS-STARTPTS[a];[repeat]asetpts=PTS-STARTPTS[b];'
         '[a][b]acrossfade=d=1.25:c1=tri:c2=tri,'
-        'atrim=duration=34,afade=t=out:st=32.6:d=1.4[audio]'
+        f'atempo={36.75/DURATION:.12f},apad,atrim=duration={DURATION},'
+        f'afade=t=out:st={DURATION-1.4:.1f}:d=1.4[audio]'
     )
     command=[FFMPEG,'-hide_banner','-loglevel','warning','-y','-f','rawvideo','-pix_fmt','bgr24','-s','1920x1080','-r','60','-i','pipe:0','-i',str(args.master),'-filter_complex',audio_filter,'-map','0:v','-map','[audio]','-map_metadata','-1','-c:v','libx264','-crf','18','-preset','medium','-vf','scale=in_range=pc:out_range=tv:out_color_matrix=bt709','-pix_fmt','yuv420p','-color_range','tv','-colorspace','bt709','-color_primaries','bt709','-color_trc','iec61966-2-1','-c:a','aac','-b:a','192k','-ar','48000','-movflags','+faststart','-metadata','title=Cue launch','-metadata','artist=dumpydon','-metadata','copyright=Copyright 2026 dumpydon','-t',str(DURATION),str(temp)]
     enc=subprocess.Popen(command,stdin=subprocess.PIPE)
@@ -493,7 +500,7 @@ def main():
     if enc.wait()!=0 or n!=FRAMES:raise ValueError(f'Incomplete export: {n} frames')
     temp.replace(args.output)
     data=args.output.read_bytes()
-    report={'path':'/media/cue-launch.mp4','bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),'duration_seconds':DURATION,'resolution':[1920,1080],'fps':60,'frames':n,'production_source':SOURCE_URL,'production_source_sha256':hashlib.sha256(args.master.read_bytes()).hexdigest(),'ui':'Deliberate synthetic Cue UI; no screen or audio capture.','audio':'Authorized public Glee production soundtrack, extended with a 1.25-second crossfade and end fade; AAC stereo.','font':SF,'captions':'/media/cue-launch.vtt'}
+    report={'path':'/media/cue-launch.mp4','bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),'duration_seconds':DURATION,'resolution':[1920,1080],'fps':60,'frames':n,'production_source':SOURCE_URL,'production_source_sha256':hashlib.sha256(args.master.read_bytes()).hexdigest(),'ui':'Deliberate synthetic Cue UI; no screen or audio capture.','audio':'Authorized Glee soundtrack with a 1.25-second crossfade, pitch-preserving timing adjustment, and end fade; AAC stereo.','wallpaper_source':'/assets/macos-sunrise.svg','wallpaper_source_sha256':hashlib.sha256((SITE/'public/assets/macos-sunrise.svg').read_bytes()).hexdigest(),'font':SF,'captions':'/media/cue-launch.vtt'}
     (SITE/'film.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report,indent=2),flush=True)
 

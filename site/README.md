@@ -51,7 +51,7 @@ is connected to `dumpydon/cue` with these production settings:
 
 ## Film
 
-`public/media/cue-launch.mp4` is a 34-second 1080p60 H.264/AAC film. It uses the
+`public/media/cue-launch.mp4` is a 38-second 1080p60 H.264/AAC film. It uses the
 owner-authorized Glee production footage for photographed hardware and camera
 work, a synthetic Google Meet/LeetCode/Cue sequence, feature close-ups, SF
 typography, and a Cue end card. See

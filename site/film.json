@@ -1,18 +1,20 @@
 {
   "path": "/media/cue-launch.mp4",
-  "bytes": 7922152,
-  "sha256": "a3e064898abfc9b244d980869fddae52ab7dbe5d576b19eaaf1aee65ea0f3245",
-  "duration_seconds": 34,
+  "bytes": 8544390,
+  "sha256": "0febe5327749b317c591bbb1afa8b9c3086cba052b7e62a120d2e01a77b2b512",
+  "duration_seconds": 38,
   "resolution": [
     1920,
     1080
   ],
   "fps": 60,
-  "frames": 2040,
+  "frames": 2280,
   "production_source": "https://github.com/dumpydon/glee/blob/main/docs/media/glee-launch.mp4",
   "production_source_sha256": "facd89a7e49ba1aeed09cbd916d0726e108b7c4988e067f7776741283493e625",
   "ui": "Deliberate synthetic Cue UI; no screen or audio capture.",
-  "audio": "Authorized public Glee production soundtrack, extended with a 1.25-second crossfade and end fade; AAC stereo.",
+  "audio": "Authorized Glee soundtrack with a 1.25-second crossfade, pitch-preserving timing adjustment, and end fade; AAC stereo.",
+  "wallpaper_source": "/assets/macos-sunrise.svg",
+  "wallpaper_source_sha256": "b05fcb608883c66b8d41a6c77fb8ae590e5f85841506fdbd34f64ea1f6c6ca17",
   "font": "/System/Library/Fonts/SFNS.ttf",
   "captions": "/media/cue-launch.vtt"
 }

@@ -2,8 +2,9 @@
 
 Public API: ``render_scene(seconds, helpers) -> PIL.Image.Image`` (RGBA, 1920x1080).
 ``helpers`` contains the existing film renderer's text/font/rr/mark/icon/dotted/
-smooth/tween/COL helpers. This module neither imports that renderer nor captures
-the screen, opens applications, or accesses the network.
+smooth/tween/COL helpers plus desktop_wallpaper(width, height). This module
+neither imports that renderer nor captures the screen, opens applications, or
+accesses the network.
 """
 from __future__ import annotations
 
@@ -13,7 +14,6 @@ import math
 import token
 import tokenize
 
-import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 
@@ -71,24 +71,6 @@ def _paragraph(d, h, xy, value, width, size=24, fill='#d7d9df', lh=34, weight=45
     for n, line in enumerate(lines):
         h['text'](d, (xy[0], xy[1] + n * lh), line, size, fill, weight)
     return xy[1] + len(lines) * lh
-
-
-@lru_cache(maxsize=1)
-def _wallpaper():
-    """Soft folded color, generated once rather than blurred every movie frame."""
-    w, ht = SIZE
-    x = np.linspace(0, 1, w, dtype=np.float32)[None, :]
-    y = np.linspace(0, 1, ht, dtype=np.float32)[:, None]
-    warm = 1 / (1 + np.exp((y - .41 - .21 * np.sin(x * 4.2)) * 13))
-    cold = np.clip(.5 + x * .55 - y * .14, 0, 1)
-    low = np.array([79, 67, 190], np.float32) + cold[:, :, None] * np.array([-31, 34, 44], np.float32)
-    high = np.array([246, 111, 95], np.float32) + x[:, :, None] * np.array([5, 43, 8], np.float32)
-    a = low * (1 - warm[:, :, None]) + high * warm[:, :, None]
-    ridge = np.exp(-((y - .67 + .13 * np.sin(x * 4.8 + .7)) / .07) ** 2)
-    a += ridge[:, :, None] * np.array([36, 28, 48], np.float32)
-    shade = np.clip((x - .85) * .45 + (y - .78) * .2, 0, .15)
-    a *= (1 - shade[:, :, None])
-    return Image.fromarray(np.uint8(np.clip(a, 0, 255))).convert('RGBA')
 
 
 @lru_cache(maxsize=12)
@@ -229,8 +211,8 @@ def _dock_icon(d,h,x,y,kind):
         h['icon'](d,x+10,y+6,'gear',27,'#535a6d')
 
 
-def _desktop(h):
-    im = _wallpaper().copy()
+def _desktop(h, background):
+    im = background.copy()
     d = ImageDraw.Draw(im)
     d.rectangle((0,0,1920,34),fill=(30,24,43,165))
     h['text'](d,(24,6),'',23,'#f9f6fb',600)
@@ -259,7 +241,7 @@ def _desktop(h):
 
 
 def _chrome(h, active):
-    im = _desktop(h)
+    im = _desktop(h, h['desktop_wallpaper'](*SIZE))
     browser=Image.new('RGBA',(BW,BH))
     d=ImageDraw.Draw(browser)
     h['rr'](d,(0,0,BW-1,BH-1),'#191b20',15,'#ffffff30')
@@ -429,7 +411,7 @@ def _leetcode_static(h):
 
 
 def _base(h,name):
-    key=(id(h['font']),name)
+    key=(id(h['font']),id(h['desktop_wallpaper']),name)
     if key not in _BASE_CACHE:
         _BASE_CACHE[key]=_meet_static(h) if name=='meet' else _leetcode_static(h)
     return _BASE_CACHE[key].copy()
@@ -537,12 +519,27 @@ def _syntax_code(d,h,xy,value,size=20,lh=23.2,visible_lines=100):
             d.text((xy[0]+tok.start[1]*cw,xy[1]+(tok.start[0]-1)*lh+ascent),tok.string,font=f,fill=color,anchor='ls')
 
 
+def _cue_drag_offset(t):
+    """One continuous screen-space translation shared by window and cursor."""
+    outward=_phase(t,18.65,19.7)
+    returning=_phase(t,20.0,21.1)
+    return -440*outward+260*returning, -90*outward+90*returning
+
+
 def _cue_geometry(t):
     p=_phase(t,12.66,13.15)
     scale=1-.04*p
-    x=CUE_X+(CUE_W-CUE_W*scale)/2
-    y=CUE_Y+(CUE_H-CUE_H*scale)/2
+    dx,dy=_cue_drag_offset(t)
+    x=CUE_X+(CUE_W-CUE_W*scale)/2+dx
+    y=CUE_Y+(CUE_H-CUE_H*scale)/2+dy
     return x,y,scale,p
+
+
+def _cue_grab_point(t):
+    x,y,scale,_=_cue_geometry(t)
+    # Match _window's raster origin as well as its transform, so even subpixel
+    # rounding never lets the arrow drift relative to the dragged titlebar.
+    return round(x)+600*scale,round(y)+40*scale
 
 
 def _cue(im,t,h):
@@ -557,8 +554,9 @@ def _cue(im,t,h):
     layer=Image.new('RGBA',(CUE_W,CUE_H))
     d=ImageDraw.Draw(layer)
     h['rr'](d,(4,4,1075,655),'#2f263c',23,'#81718e',1)
-    h['rr'](d,(4,4,1075,77),'#241a32',23)
-    d.rectangle((5,53,1074,77),fill='#241a32')
+    toolbar_fill='#2a1e3b' if 18.55<=t<21.2 else '#241a32'
+    h['rr'](d,(4,4,1075,77),toolbar_fill,23)
+    d.rectangle((5,53,1074,77),fill=toolbar_fill)
     h['mark'](d,23,21,37,'#f0eafa')
     h['text'](d,(73,27),'Cue',26,'#f1edf8',610)
     d.line((141,22,141,58),'#62506f',1)
@@ -657,9 +655,7 @@ def _position(t,keys):
     return keys[-1][1]
 
 
-def _cursor(im,t,h):
-    if t<4.86:
-        return
+def _cursor_position(t):
     # Movement, dwell, click, and response have separate readable beats.
     ix,iy,sc,_=_cue_geometry(12.64)
     eye=(ix+996*sc,iy+40*sc)
@@ -669,11 +665,21 @@ def _cursor(im,t,h):
           (6.55,(1003,633)),(7.18,(1003,633)),(8.85,(1003,633)),
           (9.30,(796,425)),(9.55,(796,425)),(10.55,(1248,791)),
           (11.91,eye),(12.83,eye),(13.63,(1408,857)),(14.21,assist),
-          (14.72,assist),(15.38,(1466,962)),(18.0,(1466,962))]
-    x,y=_position(t,keys)
+          (14.72,assist),(15.38,(1466,962)),(18.0,(1466,962)),
+          (18.55,_cue_grab_point(18.55))]
+    if t<=18.55:
+        return _position(t,keys)
+    # The pointer never slips relative to the titlebar while the mouse is held.
+    return _cue_grab_point(t)
+
+
+def _cursor(im,t,h):
+    if t<4.86:
+        return
+    x,y=_cursor_position(t)
     click_layer=Image.new('RGBA',SIZE)
     cd=ImageDraw.Draw(click_layer)
-    for click in [5.55,9.42,12.66,14.48]:
+    for click in [5.55,9.42,12.66,14.48,18.55,21.2]:
         age=t-click
         if 0<=age<.38:
             r=9+31*_phase(age,0,.38)
@@ -693,18 +699,24 @@ def render_scene(t, helpers):
 
     Main action times (seconds): tab click 5.55; Spotlight 7.2–10; Cue launch
     10; eye click 12.66; Smart assist / screenshot 14.48; full answer 16.35.
-    The resulting frame remains stable through 18 seconds for edit handles.
+    Added drag: titlebar press 18.55; move left/up 18.65–19.7; return toward
+    right/down 20–21.1; release 21.2; final position holds through 22 seconds.
     """
-    t=max(0.0,min(float(t),18.0))
+    t=max(0.0,min(float(t),22.0))
     if t<5.55:
         im=_base(helpers,'meet')
         _meet_activity(im,t,helpers)
     else:
         im=_base(helpers,'leetcode')
-        _mini_meet(im,t,helpers)
+        if t<18.65:
+            _mini_meet(im,t,helpers)
         _spotlight(im,t,helpers)
         _cue(im,t,helpers)
         _screenshot_pulse(im,t,helpers)
+        if t>=18.65:
+            # Floating Meet remains above the moved Cue window, at a fixed
+            # screen position, even as Cue passes its lower-left corner.
+            _mini_meet(im,t,helpers)
     _cursor(im,t,helpers)
     im.putalpha(255)
     return im

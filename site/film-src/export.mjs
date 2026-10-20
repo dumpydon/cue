@@ -1,4 +1,4 @@
-/* Reproduce the 34-second Cue photographic production edit. */
+/* Reproduce the 38-second Cue photographic production edit. */
 import path from 'node:path';
 import fs from 'node:fs';
 import {fileURLToPath} from 'node:url';
