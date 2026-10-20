@@ -1,4 +1,5 @@
 // Deliberate, synthetic examples; this page never calls a model or records.
+import { setupPrivacyDemo } from './privacy-demo.js';
 export function setupProductExamples() {
   const one = selector => document.querySelector(selector);
   const all = selector => [...document.querySelectorAll(selector)];
@@ -31,12 +32,7 @@ export function setupProductExamples() {
         event.preventDefault(); choose(tabs[next]); tabs[next].focus();
       });
     });
-    one('#demo-incognito').addEventListener('click', event => {
-      const button = event.currentTarget, enabled = button.getAttribute('aria-pressed') !== 'true';
-      button.setAttribute('aria-pressed', String(enabled));
-      button.querySelector('img').src = enabled ? '/assets/incognito.svg' : '/assets/eye.svg';
-      demo.classList.toggle('demo-protected', enabled); demo.classList.toggle('demo-detectable', !enabled);
-    });
+    setupPrivacyDemo(demo);
   }
   const modes = {
     interview: { title: 'Interview', context: 'Use my background as the source of truth. Keep the reply focused and easy to say out loud. If details are missing, give me a structure I can fill in.', file: 'Resume.pdf' },
