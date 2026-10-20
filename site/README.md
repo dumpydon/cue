@@ -51,10 +51,10 @@ is connected to `dumpydon/cue` with these production settings:
 
 ## Film
 
-`public/media/cue-launch.mp4` is a 19-second 1080p60 H.264/AAC film. It uses the
+`public/media/cue-launch.mp4` is a 34-second 1080p60 H.264/AAC film. It uses the
 owner-authorized Glee production footage for photographed hardware and camera
-work, composited with synthetic Cue UI, feature close-ups, SF typography, and a
-Cue end card. It replaces the earlier canvas-rendered film. See
+work, a synthetic Google Meet/LeetCode/Cue sequence, feature close-ups, SF
+typography, and a Cue end card. See
 `film-src/README.md` to reproduce it. The Glee-style player has native fallback,
 restart, play/pause, sound, fullscreen, and background/offscreen pausing. The
 first-launch guide and product examples are illustrations; they do not capture

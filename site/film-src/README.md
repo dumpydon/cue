@@ -1,12 +1,12 @@
-# Cue launch film — photographic production edit
+# Cue launch film
 
-The replacement is **19 seconds, 1920 × 1080, 60 fps**, with H.264 High video and AAC audio. It uses the same photographed laptop, white studio backdrop, native SF typography, and soundtrack as the owner's explicitly authorized public Glee film. Every displayed Cue screen, conversation, code example, mode panel, and end card is synthetic and created by this source. The rejected drawn laptop film is no longer the production source.
+The film is **34 seconds, 1920 × 1080, 60 fps**, with H.264 High video and AAC stereo audio. It combines the owner's photographed Glee laptop opening and return shots with a deterministic, synthetic Google Meet → LeetCode → Cue demonstration. Native SF typography, the white studio presentation, the two approved feature layouts, and the closing card carry through the edit.
 
-## Production source
+## Production sources
 
-The source is the owner's public [Glee launch film](https://github.com/dumpydon/glee/blob/main/docs/media/glee-launch.mp4). Its recorded SHA-256 is `facd89a7e49ba1aeed09cbd916d0726e108b7c4988e067f7776741283493e625`; the exporter rejects a different source. Glee's `docs/media/README.md` and `script/create_launch_video.py` document that production edit.
+The hardware and music source is the owner's public [Glee launch film](https://github.com/dumpydon/glee/blob/main/docs/media/glee-launch.mp4). Its SHA-256 is `facd89a7e49ba1aeed09cbd916d0726e108b7c4988e067f7776741283493e625`; the exporter rejects a different source. The source is 19 seconds long. Its music is extended with a 1.25-second crossfade and a final fade, then encoded as 48 kHz AAC stereo.
 
-Glee's public 19-second edit is the hardware source. The separate Downloads production candidate ending in another brand is **not** an input to this edit. The Glee reference provided the native font configuration and presentation direction. Glee-specific screens, lid-related copy, title, and repository link are replaced or omitted. The original approved Glee AAC soundtrack is copied without transcoding.
+The Google Meet mark comes from the local compatibility logo asset documented in [the asset notices](../THIRD_PARTY_ASSETS.md). All names, meeting views, Spotlight results, problem/editor interfaces, Cue windows, and responses are synthetic illustrations. No live meeting, screen, microphone, credentials, or personal data is captured.
 
 ## Reproduce
 
@@ -19,40 +19,38 @@ CUE_FILM_MASTER=/path/to/glee/docs/media/glee-launch.mp4 node site/film-src/expo
 CUE_FILM_MASTER=/path/to/glee/docs/media/glee-launch.mp4 node site/film-src/export.mjs
 ```
 
-Alternatively invoke the Python script directly:
+`PYTHON_BIN` overrides the wrapper's interpreter and `FFMPEG_BIN` overrides FFmpeg. `--retrack` recalculates the supplied display-plane tracking for the approved hardware source. `--frames-only` exports review stills and the poster without encoding the movie.
 
-```sh
-site/film-src/.venv/bin/python site/film-src/create_launch_video.py --master /path/to/glee/docs/media/glee-launch.mp4
-```
+`create_launch_video.py` owns the 2,040-frame timeline, photographed display compositing, feature layouts, typography, audio edit, encoding, and integrity metadata. `interview_scene.py` draws the synthetic desktop and cursor sequence. Every output frame is determined by its frame number; animation does not depend on wall-clock time or random input. Syntax-colored code uses a shared text baseline so punctuation and token colors remain aligned.
 
-The first run calculates screen-plane tracking and saves `tracking.json`. `--retrack` recalculates it. The tracked file permits deterministic reproduction from the same approved master. The exact original source SHA-256 is recorded in `site/film.json`. `PYTHON_BIN` overrides the Node wrapper's interpreter; `FFMPEG_BIN` overrides the `ffmpeg` executable in the Python source.
-
-`frame_at(frame_number, original_frame, tracking)` defines every output frame. The renderer does not use wall-clock animation or random input. PIL draws Cue's UI with actual SFNS/SFNSMono text. OpenCV tracks and composites the new entire display plane into the photographic hardware shots. FFmpeg receives all 1140 frames and copies the approved audio stream. The final extreme source zoom is omitted to avoid unstable screen tracking; Cue's end card has a longer hold.
-
-## Outputs and sequence
-
-- `site/public/media/cue-launch.mp4` — fast-start H.264/yuv420p, AAC stereo.
-- `site/public/media/cue-launch-poster.jpg` — photographic laptop with Cue screen.
-- `site/public/media/cue-launch.vtt` — matching captions.
-- `site/film.json` — actual bytes, SHA-256, format and production provenance.
-- `site/film-src/previews/encoded-contact-sheet.jpg` — review frames extracted from the encoded movie (local review artifact, not a published asset).
+## Sequence
 
 | Time | Content |
 | --- | --- |
-| 0–4.85 s | Real laptop opening and camera push-in, synthetic Cue screen |
-| 4.85–8 s | Screen + mic + Them; complete synthetic You/Them conversation |
-| 8–10.9 s | Complete syntax-colored Python sliding-window solution |
-| 10.9–13.8 s | Modes, provider/model choice and dotted incognito borders |
-| 13.8–15.5 s | Photographic laptop return with Cue code and product copy |
-| 15.5–19 s | Cue title and cue.dumpydon.workers.dev |
+| 0–4.85 s | Photographed laptop opening; Google Meet is underway on the display |
+| 4.85–7.2 s | Open LeetCode 42, Trapping Rain Water; Meet becomes a floating window |
+| 7.2–10 s | Open Spotlight, search for Cue, launch the app |
+| 10–14 s | Cue opens; the animated cursor switches the eye control to incognito |
+| 14–18 s | Smart assist uses the problem on screen and reveals a two-pointer answer |
+| 18–22 s | Screen + mic + interviewer; both sides of the conversation in context |
+| 22–26.5 s | A clear solution. Right on cue; complete, syntax-colored Python code |
+| 26.5–29.3 s | Modes, provider/model choice, and incognito controls |
+| 29.3–31 s | Photographed laptop return and product copy |
+| 31–34 s | Cue title and website |
 
-Incognito requests screen-share protection; the film states that capture behavior varies by app and platform. It does not claim undetectability or imply closed-lid operation. No actual system audio, microphone, screen, profile, transcript, secret, or user data was captured. The film does not make a system audio compatibility claim.
+The eye toggle illustrates a change from visible to incognito. The real app opens in incognito by default. Incognito requests native capture protection; behavior varies by app and platform, as the film and surrounding website state.
 
-## Verification
+## Outputs and verification
+
+- `site/public/media/cue-launch.mp4` — fast-start H.264/yuv420p, AAC stereo.
+- `site/public/media/cue-launch-poster.jpg` — photographed laptop with the illustrated meeting.
+- `site/public/media/cue-launch.vtt` — timed English captions.
+- `site/film.json` — bytes, SHA-256, duration, frame count, and provenance.
+- `site/film-src/previews/` — ignored local review frames and encoded contact sheet.
 
 ```sh
-/opt/homebrew/bin/ffprobe -v error -show_streams -show_format -of json site/public/media/cue-launch.mp4
-/opt/homebrew/bin/ffmpeg -v error -i site/public/media/cue-launch.mp4 -f null -
+ffprobe -v error -show_streams -show_format -of json site/public/media/cue-launch.mp4
+ffmpeg -v error -i site/public/media/cue-launch.mp4 -f null -
 ```
 
-The film is illustrative. Supported features are represented deliberately rather than recorded from a live app. The inherited hardware footage is limited to the source master's 1080p detail. Fonts and photo rasterization can vary slightly with host/library versions; the supplied package pins match the render setup.
+Review the encoded output at the tab switch, Spotlight search, eye click, screenshot click, answer reveal, both feature slides, and closing transitions. Hardware footage retains the detail of the authorized 1080p master.

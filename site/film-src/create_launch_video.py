@@ -23,7 +23,9 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 HERE = Path(__file__).resolve().parent
 SITE = HERE.parent
-WIDTH, HEIGHT, FPS, FRAMES = 1920, 1080, 60, 1140
+WIDTH, HEIGHT, FPS = 1920, 1080, 60
+DURATION, SOURCE_FRAMES = 34, 1140
+FRAMES = DURATION * FPS
 FFMPEG = os.environ.get('FFMPEG_BIN', 'ffmpeg')
 SOURCE_URL = 'https://github.com/dumpydon/glee/blob/main/docs/media/glee-launch.mp4'
 SOURCE_SHA256 = 'facd89a7e49ba1aeed09cbd916d0726e108b7c4988e067f7776741283493e625'
@@ -34,15 +36,19 @@ COL = dict(bg='#fdffff', ink='#1f1f1f', toolbar='#260336', panel='#403645',
            text='#f5f4fa', muted='#c0b5c4', violet='#7852b6', light='#c3a4ed',
            blue='#4d9bfa', cyan='#94ddf0', border='#75657b')
 UI_SIZE = (1440, 800)
-CODE = '''def longest_unique(text):
-    left = best = 0
-    last = {}
-    for right, char in enumerate(text):
-        if char in last:
-            left = max(left, last[char] + 1)
-        last[char] = right
-        best = max(best, right - left + 1)
-    return best'''
+CODE = '''def trap(height):
+    left, right = 0, len(height) - 1
+    left_max = right_max = water = 0
+    while left < right:
+        if height[left] <= height[right]:
+            left_max = max(left_max, height[left])
+            water += left_max - height[left]
+            left += 1
+        else:
+            right_max = max(right_max, height[right])
+            water += right_max - height[right]
+            right -= 1
+    return water'''
 
 
 def smooth(x):
@@ -157,21 +163,30 @@ def composer(d,y=712):
     text(d,(1377,y+17),'↑',24,weight=650,center=True)
 
 
-def code(d,x,y,size=24,lh=37):
-    keywords={'def','for','in','if','return'}
-    builtin={'max','enumerate'}
-    charw=d.textlength('M',font=font(size,450,True))
-    for i,row in enumerate(CODE.splitlines()):
-        text(d,(x-47,y+i*lh),str(i+1).rjust(2),size-3,'#9c8ba3',mono=True)
-        text(d,(x,y+i*lh),row,size,'#eae3ed',mono=True)
+def code(d,x,y,size=23,lh=27):
+    # Color each glyph once; painting over a white copy leaves pale fringes.
+    rows=CODE.splitlines()
+    colors=[["#eae3ed"]*len(row) for row in rows]
+    keywords={'def','for','in','if','else','while','return'}
+    builtins={'max','min','len','range','enumerate','trap'}
     for tok in tokenize.generate_tokens(io.StringIO(CODE).readline):
-        if tok.type in (token.NEWLINE,token.INDENT,token.DEDENT,token.ENDMARKER):continue
-        co=None
-        if tok.string in keywords:co='#e9a7ef'
-        elif tok.string in builtin or tok.string=='longest_unique':co='#8ddce9'
-        elif tok.type==token.NUMBER:co='#ffd693'
-        elif tok.type==token.STRING:co='#c3dfb5'
-        if co:text(d,(x+tok.start[1]*charw,y+(tok.start[0]-1)*lh),tok.string,size,co,mono=True)
+        color=None
+        if tok.string in keywords:color='#e9a7ef'
+        elif tok.string in builtins:color='#8ddce9'
+        elif tok.type==token.NUMBER:color='#ffd693'
+        elif tok.type==token.STRING:color='#c3dfb5'
+        if color and tok.start[0]==tok.end[0] and 0<tok.start[0]<=len(rows):
+            colors[tok.start[0]-1][tok.start[1]:tok.end[1]]=[color]*(tok.end[1]-tok.start[1])
+    for i,row in enumerate(rows):
+        baseline=y+i*lh+font(size,450,True).getmetrics()[0]
+        d.text((x-47,baseline),str(i+1).rjust(2),font=font(size-3,450,True),fill='#9c8ba3',anchor='ls')
+        start=0
+        while start<len(row):
+            end=start+1
+            while end<len(row) and colors[i][end]==colors[i][start]:end+=1
+            advance=d.textlength(row[:start],font=font(size,450,True))
+            d.text((x+advance,baseline),row[start:end],font=font(size,450,True),fill=colors[i][start],anchor='ls')
+            start=end
 
 
 def ui(t,kind='chat',incognito=False):
@@ -183,26 +198,26 @@ def ui(t,kind='chat',incognito=False):
     if kind=='chat':
         text(d,(41,147),'LIVE CONTEXT',19,'#b5a6c0',weight=650)
         rr(d,(37,193,665,677),'#493e50',19,'#7c6985')
-        text(d,(65,218),'Them',23,'#a9d9f2',weight=600)
-        for i,s in enumerate(['How would you find the longest','substring without repeating','characters?']):text(d,(65,262+i*36),s,28,weight=480)
+        text(d,(65,218),'Interviewer',23,'#a9d9f2',weight=600)
+        for i,s in enumerate(['How would you solve Trapping Rain','Water in linear time and constant','extra space?']):text(d,(65,262+i*36),s,28,weight=480)
         d.line((65,393,637,393),'#72627c',1)
         text(d,(65,422),'You',23,'#d7baf4',weight=600)
-        for i,s in enumerate(["I'll use a sliding window and",'track the last index of each','character.']):text(d,(65,466+i*36),s,28,weight=480)
+        for i,s in enumerate(["I'll use two pointers and keep",'the highest boundary seen on','each side.']):text(d,(65,466+i*36),s,28,weight=480)
         text(d,(700,150),'A useful next step',27,weight=600)
-        text(d,(700,213),'Start with the invariant.',34,weight=650)
-        for i,s in enumerate(['Keep every character in the window','unique. When one repeats, move the','left edge past its previous position.']):text(d,(700,270+i*36),s,27,'#e7dfe9')
+        text(d,(700,213),'Move the lower boundary.',34,weight=650)
+        for i,s in enumerate(['That side’s maximum bounds the','water at this position. Add the','gap, then move that pointer.']):text(d,(700,270+i*36),s,27,'#e7dfe9')
         rr(d,(700,425,1397,577),'#352c3d',18)
-        text(d,(728,451),'"abcabcbb"  →  3',31,COL['cyan'],weight=550,mono=True)
-        text(d,(728,507),'A single pass. No repeated work.',26,COL['muted'])
-        text(d,(704,622),'Screen + microphone + Them context',22,'#c8b8d2',weight=500)
+        text(d,(728,451),'[0,1,0,2,…]  →  6',31,COL['cyan'],weight=550,mono=True)
+        text(d,(728,507),'Two pointers. No extra arrays.',26,COL['muted'])
+        text(d,(704,622),'Screen + microphone + interviewer',22,'#c8b8d2',weight=500)
     elif kind=='code':
-        text(d,(43,146),'The sliding-window solution',31,weight=620)
+        text(d,(43,146),'The two-pointer solution',31,weight=620)
         rr(d,(38,202,1398,636),'#292430',18,'#6b5b75')
         text(d,(64,222),'PYTHON',17,'#b8a8c3',weight=600)
-        code(d,108,268,25,37)
+        code(d,108,258,23,27)
         text(d,(44,658),'Time  O(n)',25,COL['cyan'],weight=550)
-        text(d,(298,658),'Space  O(k)',25,'#dab7ee',weight=550)
-        text(d,(626,658),'Each character enters and leaves once.',23,'#e3d7e8')
+        text(d,(298,658),'Space  O(1)',25,'#dab7ee',weight=550)
+        text(d,(626,658),'Track boundaries. Accumulate each gap.',23,'#e3d7e8')
     else:
         text(d,(43,148),'Choose the way Cue helps.',32,weight=600)
         for i,(label,active) in enumerate([('General',False),('Coding',True),('Interview',False)]):
@@ -278,7 +293,7 @@ def track(master):
             grays[number]=cv2.cvtColor(cv2.resize(frame,(960,540)),cv2.COLOR_BGR2GRAY)
         number+=1
     cap.release()
-    if number!=FRAMES:raise ValueError('Expected the approved 19s, 60fps public Glee film.')
+    if number!=SOURCE_FRAMES:raise ValueError('Expected the approved 19s, 60fps public Glee film.')
     tracks={}
     for refno,span in [(120,(45,306)),(870,(820,972))]:
         ref=grays[refno];corners=REFERENCES[refno]
@@ -354,7 +369,7 @@ def title_pair(im,t,start,first,second,size=82,opacity=1):
 
 def feature_frame(t,kind,start):
     im=white_frame()
-    if kind=='chat':title_pair(im,t,start,'Screen + mic + Them.','The context comes together.',74)
+    if kind=='chat':title_pair(im,t,start,'Screen + mic + interviewer.','The context comes together.',74)
     elif kind=='code':title_pair(im,t,start,'A clear solution.','Right on cue.',78)
     else:title_pair(im,t,start,'Your mode. Your context.','A little more private.',75)
     p=tween(t,start,start+.55)
@@ -371,6 +386,7 @@ def feature_frame(t,kind,start):
 
 
 def endcard(t):
+    t=t-31+15.5
     im=white_frame()
     p=tween(t,15.5,16.24)
     # Glee's original typography and restrained blur/spring title entrance.
@@ -386,24 +402,47 @@ def endcard(t):
     return np.asarray(im.convert('RGB'))[:,:,::-1].copy()
 
 
+def interview_frame(t):
+    from interview_scene import render_scene
+    helpers={name:globals()[name] for name in ['text','font','rr','mark','icon','dotted','smooth','tween','COL','code','CODE']}
+    return render_scene(t,helpers)
+
+
+def source_number(number):
+    if number<291:return number
+    if 1758<=number<1860:return 828+number-1758
+    return None
+
+
 def frame_at(number,base,tracks):
     t=number/FPS
     if number<291:
-        if number in tracks:base=composite_screen(base,desktop(t),tracks[number])
+        if number in tracks:
+            screen=interview_frame(t).resize((2400,1560),Image.Resampling.LANCZOS)
+            arr=np.asarray(screen.convert('RGB'))[:,:,::-1].copy()
+            base=composite_screen(base,arr,tracks[number])
         return base
-    if number<480:return feature_frame(t,'chat',4.85)
-    if number<654:return feature_frame(t,'code',8)
-    if number<828:return feature_frame(t,'modes',10.9)
-    if number<930:
-        if number in tracks:base=composite_screen(base,desktop(t),tracks[number])
-        if number<930:
-            # The source's old lid-related title is on an otherwise empty studio backdrop.
-            if number<906:base[40:390]=np.array([255,255,253],np.uint8)
-            im=Image.fromarray(base[:,:,::-1]).convert('RGBA')
-            title_pair(im,t,13.8,'Stay in the conversation.','The right words. Right on cue.',76,1-tween(t,14.9,15.1))
-            return np.asarray(im.convert('RGB'))[:,:,::-1].copy()
-        return base
+    if t<18:return np.asarray(interview_frame(t).convert('RGB'))[:,:,::-1].copy()
+    if t<22:return feature_frame(t,'chat',18)
+    if t<26.5:return feature_frame(t,'code',22)
+    if t<29.3:return feature_frame(t,'modes',26.5)
+    if t<31:
+        source=source_number(number)
+        if source in tracks:base=composite_screen(base,desktop(t),tracks[source])
+        if source<906:base[40:390]=np.array([255,255,253],np.uint8)
+        im=Image.fromarray(base[:,:,::-1]).convert('RGBA')
+        title_pair(im,t,29.3,'Stay in the conversation.','The right words. Right on cue.',76,1-tween(t,30.4,30.6))
+        return np.asarray(im.convert('RGB'))[:,:,::-1].copy()
     return endcard(t)
+
+
+def base_at(cap,number):
+    source=source_number(number)
+    if source is None:return None
+    if round(cap.get(cv2.CAP_PROP_POS_FRAMES))!=source:cap.set(cv2.CAP_PROP_POS_FRAMES,source)
+    ok,base=cap.read()
+    if not ok:raise ValueError(f'Unable to read production source frame {source}')
+    return base
 
 
 def main():
@@ -420,26 +459,32 @@ def main():
     else:tracks=stabilize_opening({int(k):np.float32(v) for k,v in json.loads((HERE/'tracking.json').read_text())['frames'].items()})
     previews=HERE/'previews';previews.mkdir(exist_ok=True)
     cap=cv2.VideoCapture(str(args.master))
+    preview_numbers=[150,285,360,510,660,780,900,1020,1200,1440,1650,1790,1980]
     if args.frames_only:
-        for n in [90,150,240,327,480+90,654+90,870,960,1080]:
-            cap.set(cv2.CAP_PROP_POS_FRAMES,n);ok,frame=cap.read()
-            if not ok:raise ValueError(f'Unable to read source frame {n}')
-            cv2.imwrite(str(previews/f'production-{n:04}.png'),frame_at(n,frame,tracks))
-        cap.set(cv2.CAP_PROP_POS_FRAMES,150);ok,frame=cap.read()
-        cv2.imwrite(str(SITE/'public/media/cue-launch-poster.jpg'),frame_at(150,frame,tracks),[cv2.IMWRITE_JPEG_QUALITY,95])
+        for n in preview_numbers:
+            frame=frame_at(n,base_at(cap,n),tracks)
+            cv2.imwrite(str(previews/f'production-{n:04}.png'),frame)
+        frame=frame_at(150,base_at(cap,150),tracks)
+        cv2.imwrite(str(SITE/'public/media/cue-launch-poster.jpg'),frame,[cv2.IMWRITE_JPEG_QUALITY,95])
         cap.release();print('Production keyframes and photographic poster exported.',flush=True);return
+
     args.output.parent.mkdir(parents=True,exist_ok=True)
     temp=args.output.with_name('cue-launch.pending.mp4')
-    command=[FFMPEG,'-hide_banner','-loglevel','warning','-y','-f','rawvideo','-pix_fmt','bgr24','-s','1920x1080','-r','60','-i','pipe:0','-i',str(args.master),'-map','0:v','-map','1:a:0?','-map_metadata','-1','-c:v','libx264','-crf','18','-preset','medium','-vf','scale=in_range=pc:out_range=tv:out_color_matrix=bt709','-pix_fmt','yuv420p','-color_range','tv','-colorspace','bt709','-color_primaries','bt709','-color_trc','iec61966-2-1','-c:a','copy','-movflags','+faststart','-metadata','title=Cue launch','-metadata','artist=dumpydon','-metadata','copyright=Copyright 2026 dumpydon','-t','19',str(temp)]
+    audio_filter=(
+        '[1:a:0]asplit=2[first][repeat];'
+        '[first]asetpts=PTS-STARTPTS[a];[repeat]asetpts=PTS-STARTPTS[b];'
+        '[a][b]acrossfade=d=1.25:c1=tri:c2=tri,'
+        'atrim=duration=34,afade=t=out:st=32.6:d=1.4[audio]'
+    )
+    command=[FFMPEG,'-hide_banner','-loglevel','warning','-y','-f','rawvideo','-pix_fmt','bgr24','-s','1920x1080','-r','60','-i','pipe:0','-i',str(args.master),'-filter_complex',audio_filter,'-map','0:v','-map','[audio]','-map_metadata','-1','-c:v','libx264','-crf','18','-preset','medium','-vf','scale=in_range=pc:out_range=tv:out_color_matrix=bt709','-pix_fmt','yuv420p','-color_range','tv','-colorspace','bt709','-color_primaries','bt709','-color_trc','iec61966-2-1','-c:a','aac','-b:a','192k','-ar','48000','-movflags','+faststart','-metadata','title=Cue launch','-metadata','artist=dumpydon','-metadata','copyright=Copyright 2026 dumpydon','-t',str(DURATION),str(temp)]
     enc=subprocess.Popen(command,stdin=subprocess.PIPE)
     n=0
     try:
-        while True:
-            ok,base=cap.read()
-            if not ok:break
+        for n in range(FRAMES):
+            base=base_at(cap,n)
             frame=frame_at(n,base,tracks)
             enc.stdin.write(frame.tobytes())
-            if n in [150,327,570,744,870,1080]:cv2.imwrite(str(previews/f'production-{n:04}.png'),frame)
+            if n in preview_numbers:cv2.imwrite(str(previews/f'production-{n:04}.png'),frame)
             if n==150:cv2.imwrite(str(SITE/'public/media/cue-launch-poster.jpg'),frame,[cv2.IMWRITE_JPEG_QUALITY,95])
             n+=1
             if n%120==0:print(f'Rendered {n}/{FRAMES} production frames.',flush=True)
@@ -448,7 +493,7 @@ def main():
     if enc.wait()!=0 or n!=FRAMES:raise ValueError(f'Incomplete export: {n} frames')
     temp.replace(args.output)
     data=args.output.read_bytes()
-    report={'path':'/media/cue-launch.mp4','bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),'duration_seconds':19,'resolution':[1920,1080],'fps':60,'frames':n,'production_source':SOURCE_URL,'production_source_sha256':hashlib.sha256(args.master.read_bytes()).hexdigest(),'ui':'Deliberate synthetic Cue UI; no screen or audio capture.','audio':'Authorized public Glee production soundtrack, original AAC stream.','font':SF,'captions':'/media/cue-launch.vtt'}
+    report={'path':'/media/cue-launch.mp4','bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),'duration_seconds':DURATION,'resolution':[1920,1080],'fps':60,'frames':n,'production_source':SOURCE_URL,'production_source_sha256':hashlib.sha256(args.master.read_bytes()).hexdigest(),'ui':'Deliberate synthetic Cue UI; no screen or audio capture.','audio':'Authorized public Glee production soundtrack, extended with a 1.25-second crossfade and end fade; AAC stereo.','font':SF,'captions':'/media/cue-launch.vtt'}
     (SITE/'film.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report,indent=2),flush=True)
 
