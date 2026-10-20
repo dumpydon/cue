@@ -1,11 +1,13 @@
 // Cue presentation, adapted from the owner's Glee website. No capture or AI calls.
 import { setupFilmPlayers } from './film-player.js';
 import { setupProductExamples } from './ui-demo.js';
+import { setupStoryWall } from './story-wall.js';
 const one = (selector, root = document) => root.querySelector(selector);
 const all = (selector, root = document) => [...root.querySelectorAll(selector)];
 const motion = matchMedia('(prefers-reduced-motion: reduce)');
 const refreshFilms = setupFilmPlayers();
 setupProductExamples();
+setupStoryWall();
 
 const nav = one('.navtoggle'), navMenu = one('#navmenu');
 function navClose() { navMenu?.classList.remove('on'); nav?.setAttribute('aria-expanded', 'false'); }
