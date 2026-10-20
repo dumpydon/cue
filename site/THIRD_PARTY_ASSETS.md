@@ -2,9 +2,11 @@
 
 The product marks identify the third-party tools named in the compatibility row. Trademarks remain with their respective owners.
 
-- `google-meet.svg`, `microsoft-teams.svg`, `slack.svg`: [SVGL](https://github.com/pheralb/svgl/tree/main/static/library), MIT license (notice below).
+- `google-meet.svg`, `microsoft-teams.svg`, `slack.svg`, `discord.svg`: [SVGL](https://github.com/pheralb/svgl/tree/main/static/library), MIT license (notice below).
 - `zoom.svg`: [gilbarbara/logos](https://github.com/gilbarbara/logos/blob/main/logos/zoom-icon.svg).
 - `webex.svg`: [Simple Icons](https://github.com/simple-icons/simple-icons/blob/develop/icons/webex.svg), [CC0](https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md). The path is unchanged; a cyan fill is set for the dark page.
+
+- `facetime.png`: Apple’s FaceTime application icon, rasterized from macOS at 64 × 64 for product identification. The mark remains the property of Apple Inc.
 
 ## SVGL license notice
 
