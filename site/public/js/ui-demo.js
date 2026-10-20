@@ -1,5 +1,6 @@
 // Deliberate, synthetic examples; this page never calls a model or records.
 import { setupPrivacyDemo } from './privacy-demo.js';
+import { setupComparisonDemo } from './comparison-demo.js';
 export function setupProductExamples() {
   const one = selector => document.querySelector(selector);
   const all = selector => [...document.querySelectorAll(selector)];
@@ -47,8 +48,5 @@ export function setupProductExamples() {
     one('#context-file-name').textContent = mode.file;
   }));
   const slider = one('#visibility-slider');
-  slider?.addEventListener('input', () => {
-    one('#comparison').style.setProperty('--split', slider.value + '%');
-    slider.setAttribute('aria-valuetext', slider.value + ' percent local view');
-  });
+  if (slider) setupComparisonDemo(slider);
 }
