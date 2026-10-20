@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" fill="none">
+  <title>Sunrise desktop wallpaper</title>
+  <desc>An original macOS-inspired wallpaper of sweeping blue, violet, apricot, and golden ribbons.</desc>
+  <defs>
+    <linearGradient id="sky" x1="770" y1="-160" x2="1440" y2="1070" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff0bb"/>
+      <stop offset=".42" stop-color="#ffd899"/>
+      <stop offset="1" stop-color="#ffb77a"/>
+    </linearGradient>
+    <linearGradient id="cool" x1="600" y1="-60" x2="210" y2="1010" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffbd81"/>
+      <stop offset=".27" stop-color="#d495b5"/>
+      <stop offset=".57" stop-color="#627bc7"/>
+      <stop offset=".82" stop-color="#1689d8"/>
+      <stop offset="1" stop-color="#0070bd"/>
+    </linearGradient>
+    <linearGradient id="violet" x1="770" y1="80" x2="590" y2="1100" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffbf87"/>
+      <stop offset=".4" stop-color="#cf8cad"/>
+      <stop offset="1" stop-color="#7c77c4"/>
+    </linearGradient>
+    <linearGradient id="apricot" x1="920" y1="-100" x2="980" y2="1060" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffe2a4"/>
+      <stop offset=".43" stop-color="#ffb27d"/>
+      <stop offset="1" stop-color="#ffa572"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="1040" y1="-120" x2="1540" y2="980" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff0bb"/>
+      <stop offset=".55" stop-color="#ffe3a4"/>
+      <stop offset="1" stop-color="#ffd08c"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="560" y1="150" x2="130" y2="1070" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#bfa6da" stop-opacity=".18"/>
+      <stop offset=".65" stop-color="#068ae0" stop-opacity=".6"/>
+      <stop offset="1" stop-color="#006bbb" stop-opacity=".65"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="850" y1="-120" x2="350" y2="410" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff1bc"/>
+      <stop offset="1" stop-color="#ffcf92"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h1600v1000H0z"/>
+  <path fill="url(#cool)" d="M0 0h1090C852 180 672 458 718 1000H0V0Z"/>
+  <path fill="url(#blue)" d="M1030-100C756 176 517 481 363 1000H0V600C376 342 703 152 1030-100Z"/>
+  <path fill="#c5a4d9" fill-opacity=".24" d="M1002-100C757 155 554 394 425 1000h102C617 393 785 154 1002-100Z"/>
+  <path fill="url(#violet)" d="M1063-100C808 126 602 479 574 1000h191C675 527 831 161 1063-100Z"/>
+  <path fill="#e7a4ba" fill-opacity=".32" d="M1096-100C859 175 752 548 813 1000h-97C687 514 845 133 1096-100Z"/>
+  <path fill="url(#apricot)" d="M1120-100C913 200 844 524 1039 1000h561V0L1120-100Z"/>
+  <path fill="#ffcf91" fill-opacity=".38" d="M1116-100C963 220 955 558 1205 1000h-169C849 535 928 162 1116-100Z"/>
+  <path fill="url(#gold)" d="M1173-100C1089 213 1178 529 1600 840V0L1173-100Z"/>
+  <path fill="#fff0b8" fill-opacity=".44" d="M1230-100C1278 162 1413 336 1600 436V0L1230-100Z"/>
+  <path fill="#fba673" fill-opacity=".45" d="M1332-100C1431 102 1519 180 1600 221V0L1332-100Z"/>
+  <path fill="url(#sun)" d="M0 0h1002C697 90 348 202 0 384V0Z"/>
+  <path fill="#ffb574" fill-opacity=".63" d="M0 253C380 126 744 62 1028-40 744 93 382 203 0 354V253Z"/>
+  <path fill="#ffe9b2" fill-opacity=".8" d="M0 0h823C537 43 278 113 0 225V0Z"/>
+</svg>
