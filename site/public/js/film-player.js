@@ -10,10 +10,28 @@ export function setupFilmPlayers(root=document){
     const restart=player.querySelector('.film-restart'),controls=player.querySelector('.film-main-controls')
     const tools=player.querySelector('.film-tools'),sound=player.querySelector('.film-sound')
     const fullscreen=player.querySelector('.film-fullscreen'),error=player.querySelector('.film-error')
+    const timeline=player.querySelector('.film-timeline'),seek=timeline?.querySelector('.film-seek')
+    const elapsed=timeline?.querySelector('.film-time-current'),total=timeline?.querySelector('.film-time-duration')
     let visible=false,manuallyPaused=false,failed=false,request=0,hoverTimer,automaticPlayback=false
+    let scrubbing=false,resumeAfterSeek=false,scrubPointer=null
     video.id='cue-film-'+index
     video.defaultMuted=true;video.muted=true
     for(const button of [toggle,restart])button.setAttribute('aria-controls',video.id)
+    seek?.setAttribute('aria-controls',video.id)
+    function duration(){return Number.isFinite(video.duration)&&video.duration>0?video.duration:0}
+    function timestamp(value){
+      const seconds=Math.floor(Math.max(0,Number.isFinite(value)?value:0))
+      return Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0')
+    }
+    function syncTimeline(){
+      if(!seek)return
+      const length=duration(),position=Math.max(0,Math.min(length,scrubbing?Number(seek.value):video.currentTime||0))
+      seek.disabled=!length||failed;seek.max=String(length)
+      if(!scrubbing)seek.value=String(position)
+      seek.style.setProperty('--film-progress',length?position/length*100+'%':'0%')
+      elapsed.textContent=timestamp(position);total.textContent=length?timestamp(length):'--:--'
+      seek.setAttribute('aria-valuetext',length?timestamp(position)+' of '+timestamp(length):'Video loading')
+    }
     function sync(){
       const state=video.paused||video.ended?'play':'pause'
       const action=state==='play'?'Play':'Pause'
@@ -23,6 +41,7 @@ export function setupFilmPlayers(root=document){
       const audioAction=video.muted?'Unmute':'Mute'
       sound.setAttribute('aria-label',audioAction+' Cue launch film');sound.title=audioAction
       sound.querySelectorAll('[data-sound-icon]').forEach(icon=>icon.toggleAttribute('hidden',icon.dataset.soundIcon!==(video.muted?'off':'on')))
+      syncTimeline()
     }
     function available(){
       if(document.hidden||failed)return false
@@ -33,7 +52,7 @@ export function setupFilmPlayers(root=document){
     }
     function pause(){request++;clearTimeout(hoverTimer);video.pause()}
     async function play({fromStart=false,automatic=false}={}){
-      if(!available()||automatic&&(motion.matches||!visible||manuallyPaused))return
+      if(!available()||scrubbing||automatic&&(motion.matches||!visible||manuallyPaused))return
       if(!video.paused&&!video.ended&&!fromStart)return
       const attempt=++request
       clearTimeout(hoverTimer);error.hidden=true
@@ -62,6 +81,23 @@ export function setupFilmPlayers(root=document){
       if(!video.paused&&!video.ended){manuallyPaused=true;pause()}
       else manualPlay()
     }
+    function beginScrub(){
+      if(scrubbing||!duration())return
+      resumeAfterSeek=!video.paused&&!video.ended
+      scrubbing=true;manuallyPaused=true;pause()
+    }
+    function seekTo(value){
+      if(!duration()||!Number.isFinite(value))return
+      const position=Math.max(0,Math.min(duration(),value))
+      seek.value=String(position);video.currentTime=position;syncTimeline()
+    }
+    function finishScrub(){
+      if(!scrubbing)return
+      scrubbing=false
+      const resume=resumeAfterSeek;resumeAfterSeek=false
+      if(resume&&video.currentTime<duration()&&available())manualPlay()
+      else sync()
+    }
     function setVisibility(ratio){
       const next=ratio>=.25?true:ratio<=.1?false:visible
       const entering=next&&!visible
@@ -88,6 +124,34 @@ export function setupFilmPlayers(root=document){
       hoverTimer=setTimeout(()=>{manuallyPaused=false;void play({automatic:true,fromStart:video.ended})},150)
     })
     player.addEventListener('pointerleave',()=>clearTimeout(hoverTimer))
+    if(seek){
+      // Entering the timeline must not restart a paused film through hover autoplay.
+      timeline.addEventListener('pointerenter',()=>clearTimeout(hoverTimer))
+      timeline.addEventListener('focusin',()=>clearTimeout(hoverTimer))
+      seek.addEventListener('pointerdown',event=>{
+        if(seek.disabled||event.pointerType==='mouse'&&event.button!==0)return
+        scrubPointer=event.pointerId;beginScrub();seek.setPointerCapture(event.pointerId)
+      })
+      seek.addEventListener('input',()=>{
+        beginScrub();seekTo(Number(seek.value))
+        // Keyboard and accessibility input have no active pointer to wait for.
+        if(scrubPointer===null)finishScrub()
+      })
+      const release=event=>{
+        if(scrubPointer!==null&&event.pointerId!==scrubPointer)return
+        scrubPointer=null;finishScrub()
+      }
+      for(const event of ['pointerup','pointercancel','lostpointercapture'])seek.addEventListener(event,release)
+      seek.addEventListener('blur',()=>{scrubPointer=null;finishScrub()})
+      seek.addEventListener('keydown',event=>{
+        if(seek.disabled)return
+        const step=event.shiftKey?5:1
+        const positions={ArrowLeft:Number(seek.value)-step,ArrowDown:Number(seek.value)-step,ArrowRight:Number(seek.value)+step,ArrowUp:Number(seek.value)+step,PageDown:Number(seek.value)-5,PageUp:Number(seek.value)+5,Home:0,End:duration()}
+        if(!(event.key in positions))return
+        event.preventDefault();beginScrub();seekTo(positions[event.key])
+        if(scrubPointer===null)finishScrub()
+      })
+    }
     toggle.addEventListener('click',togglePlayback)
     restart.addEventListener('click',()=>manualPlay(true))
     video.addEventListener('click',()=>{if(player.classList.contains('film-enhanced'))togglePlayback()})
@@ -105,11 +169,13 @@ export function setupFilmPlayers(root=document){
       fullscreen.title=active?'Exit full screen':'Full screen'
     })
     for(const event of ['play','pause','ended','volumechange','loadedmetadata','seeked'])video.addEventListener(event,sync)
+    for(const event of ['timeupdate','durationchange','emptied'])video.addEventListener(event,syncTimeline)
     video.addEventListener('error',()=>{
       failed=true;pause();error.hidden=false;video.controls=true;controls.hidden=true;tools.hidden=true;player.classList.remove('film-enhanced')
+      if(timeline)timeline.hidden=true
     })
     // Native controls remain available when JavaScript is unavailable or media fails.
-    video.controls=false;controls.hidden=false;tools.hidden=false;player.classList.add('film-enhanced');sync()
+    video.controls=false;controls.hidden=false;tools.hidden=false;if(timeline)timeline.hidden=false;player.classList.add('film-enhanced');sync()
   })
   document.addEventListener('visibilitychange',refresh)
   addEventListener('pageshow',refresh)

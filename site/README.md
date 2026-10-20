@@ -56,7 +56,9 @@ owner-authorized Glee production footage for photographed hardware and camera
 work, a synthetic Google Meet/LeetCode/Cue sequence, feature close-ups, SF
 typography, and a Cue end card. See
 `film-src/README.md` to reproduce it. The Glee-style player has native fallback,
-restart, play/pause, sound, fullscreen, and background/offscreen pausing. The
+restart, play/pause, sound, fullscreen, and a purple seek bar with a white
+playhead and elapsed/total time. Scrubbing preserves playback state and supports
+keyboard navigation; playback pauses in the background or offscreen. The
 first-launch guide and product examples are illustrations; they do not capture
 audio, call AI providers, or change system settings.
 
