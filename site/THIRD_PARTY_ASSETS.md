@@ -6,8 +6,6 @@ The product marks identify the third-party tools named in the compatibility row.
 - `zoom.svg`: [gilbarbara/logos](https://github.com/gilbarbara/logos/blob/main/logos/zoom-icon.svg).
 - `webex.svg`: [Simple Icons](https://github.com/simple-icons/simple-icons/blob/develop/icons/webex.svg), [CC0](https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md). The path is unchanged; a cyan fill is set for the dark page.
 
-- `facetime.png`: Apple’s FaceTime application icon, rasterized from macOS at 64 × 64 for product identification. The mark remains the property of Apple Inc.
-
 ## Launch film logo
 
 - `film-src/assets/leetcode.png`: LeetCode's [original reversed logo](https://leetcode.com/static/images/LeetCode_logo_rvs.png), used in the illustrated browser tab and LeetCode page header. Only transparent padding is cropped before resizing. The mark remains the property of LeetCode.
