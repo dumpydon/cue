@@ -8,7 +8,7 @@ The hardware and music source is the owner's public [Glee launch film](https://g
 
 The wallpaper is the exact shared `public/assets/macos-sunrise.svg` also used by the first-launch walkthrough. It is rasterized once with macOS `sips`, cached by source SHA, and cropped with the same centered cover behavior. The main film metadata records its SHA.
 
-The Google Meet mark comes from the local compatibility logo asset documented in [the asset notices](../THIRD_PARTY_ASSETS.md). All names, meeting views, Spotlight results, problem/editor interfaces, Cue windows, and responses are synthetic illustrations. No live meeting, screen, microphone, credentials, or personal data is captured.
+The Google Meet mark comes from the local compatibility logo asset documented in [the asset notices](../THIRD_PARTY_ASSETS.md). The LeetCode tab and page header use LeetCode's original reversed PNG mark in `assets/leetcode.png`, cropped only to its transparent bounds and resized without changing its proportions. Google Meet branding is enlarged in the meeting header and floating call window, together with the meeting's Technical interview label. All names, meeting views, Spotlight results, problem/editor interfaces, Cue windows, and responses are synthetic illustrations. No live meeting, screen, microphone, credentials, or personal data is captured.
 
 ## Reproduce
 

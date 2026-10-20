@@ -11,6 +11,7 @@ from __future__ import annotations
 from functools import lru_cache
 import io
 import math
+from pathlib import Path
 import token
 import tokenize
 
@@ -20,7 +21,7 @@ from PIL import Image, ImageDraw, ImageFilter
 SIZE = (1920, 1080)
 BX, BY, BW, BH = 54, 66, 1812, 938
 CUE_X, CUE_Y, CUE_W, CUE_H = 752, 347, 1080, 660
-MEET_MINI = (1396, 180, 420, 152)
+MEET_MINI = (1396, 159, 420, 173)
 HEIGHTS = [0, 1, 0, 2, 1, 0, 1, 3, 2, 1, 2, 1]
 TRAPPING_RAIN_WATER_SOLUTION = '''class Solution:
     def trap(self, height):
@@ -259,7 +260,7 @@ def _chrome(h, active):
             _meet_logo(d,x1+17,19,23)
             h['text'](d,(x1+50,21),'Technical interview · Meet',17,'#e4e6ec' if chosen else '#adb0bb',500)
         else:
-            _leetcode_logo(d,x1+17,17,22)
+            _leetcode_logo(browser,x1+17,17,22)
             h['text'](d,(x1+50,21),'42. Trapping Rain Water',17,'#e4e6ec' if chosen else '#adb0bb',500)
         _glyph(d,(x2-24,23),'x',9,'#adb0bb',1)
     h['text'](d,(791,20),'+',23,'#b8bac3',450)
@@ -283,12 +284,18 @@ def _chrome(h, active):
     return im
 
 
-def _leetcode_logo(d,x,y,size):
-    s=size/24
-    pts=lambda a:[(x+px*s,y+py*s) for px,py in a]
-    d.line(pts([(13,2),(4,11),(4,15),(12,23),(16,23),(21,18)]),fill='#f6b83f',width=max(2,round(3*s)),joint='curve')
-    d.line(pts([(12,6),(17,6),(22,11)]),fill='#e3e4e8',width=max(2,round(3*s)),joint='curve')
-    d.line(pts([(9,15),(22,15)]),fill='#d2d5dd',width=max(2,round(3*s)))
+@lru_cache(maxsize=8)
+def _leetcode_mark(size):
+    """Resize LeetCode's original reversed mark, preserving its proportions."""
+    with Image.open(Path(__file__).resolve().parent/'assets/leetcode.png') as source:
+        mark=source.convert('RGBA')
+    mark=mark.crop(mark.getbbox())
+    return mark.resize((round(mark.width*size/mark.height),size),Image.Resampling.LANCZOS)
+
+
+def _leetcode_logo(im,x,y,size):
+    mark=_leetcode_mark(size)
+    im.alpha_composite(mark,(round(x+(size-mark.width)/2),round(y)))
 
 
 def _meet_static(h):
@@ -296,9 +303,10 @@ def _meet_static(h):
     d=ImageDraw.Draw(im)
     body=(BX+1,BY+96,BX+BW-2,BY+BH-2)
     d.rectangle(body,fill='#181a1e')
-    _meet_logo(d,BX+29,BY+119,34)
-    h['text'](d,(BX+77,BY+121),'Google Meet',25,'#e9eaed',520)
-    h['text'](d,(BX+BW-218,BY+126),'Technical interview',20,'#aeb2bc',450)
+    _meet_logo(d,BX+29,BY+109,68)
+    h['text'](d,(BX+112,BY+113),'Google Meet',50,'#e9eaed',520)
+    interview_width=d.textlength('Technical interview',font=h['font'](40,450))
+    h['text'](d,(BX+BW-30-interview_width,BY+121),'Technical interview',40,'#aeb2bc',450)
     # Comfortable safe edges survive the photographed laptop's taller display.
     top,bottom=BY+187,BY+BH-121
     mid=960
@@ -361,7 +369,7 @@ def _leetcode_static(h):
     d=ImageDraw.Draw(im)
     x1,y1,x2,y2=BX+1,BY+96,BX+BW-2,BY+BH-2
     d.rectangle((x1,y1,x2,y2),fill='#17181c')
-    _leetcode_logo(d,x1+24,y1+16,26)
+    _leetcode_logo(im,x1+24,y1+16,26)
     h['text'](d,(x1+67,y1+20),'LeetCode',22,'#e7e8ee',600)
     d.line((x1+185,y1+16,x1+185,y1+45),'#3f424a',1)
     h['text'](d,(x1+211,y1+22),'Problem List',19,'#bfc2cb',500)
@@ -446,18 +454,18 @@ def _mini_meet(im,t,h):
     layer=Image.new('RGBA',(w,ht))
     d=ImageDraw.Draw(layer)
     h['rr'](d,(0,0,w-1,ht-1),'#25282f',13,'#697482',1)
-    _meet_logo(d,12,11,20)
-    h['text'](d,(41,12),'Google Meet',15,'#eff1f7',550)
-    h['text'](d,(w-21,12),'−',18,'#c2c7d2',500,True)
-    h['rr'](d,(9,39,w//2-4,ht-10),'#31445c',9,'#9ac7ff',2)
-    h['rr'](d,(w//2+4,39,w-10,ht-10),'#383747',9)
+    _meet_logo(d,12,13,40)
+    h['text'](d,(66,15),'Google Meet',30,'#eff1f7',550)
+    h['text'](d,(w-21,23),'−',18,'#c2c7d2',500,True)
+    h['rr'](d,(9,60,w//2-4,ht-10),'#31445c',9,'#9ac7ff',2)
+    h['rr'](d,(w//2+4,60,w-10,ht-10),'#383747',9)
     for cx,label,initials,co in [(w*.25,'Nora Chen','NC','#b7d8fe'),(w*.75,'You','YL','#d3c6ef')]:
-        d.ellipse((cx-24,49,cx+24,97),fill=co)
-        h['text'](d,(cx,62),initials,21,'#3a4662',560,True)
-        h['text'](d,(cx,116),label,16,'#f0f2f8',500,True)
-    _voice_bars(d,178,54,t,height=17)
-    _glyph(d,(w-40,51),'mic',15,'#c1bdd3',1)
-    d.line((w-42,50,w-24,69),'#c1bdd3',1)
+        d.ellipse((cx-24,70,cx+24,118),fill=co)
+        h['text'](d,(cx,83),initials,21,'#3a4662',560,True)
+        h['text'](d,(cx,137),label,16,'#f0f2f8',500,True)
+    _voice_bars(d,178,75,t,height=17)
+    _glyph(d,(w-40,72),'mic',15,'#c1bdd3',1)
+    d.line((w-42,71,w-24,90),'#c1bdd3',1)
     _window(im,layer,(x+round(22*(1-entrance)),y),entrance,shadow=95)
 
 
