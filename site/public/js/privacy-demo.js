@@ -8,20 +8,44 @@ export function setupPrivacyDemo(demo) {
   cursor.setAttribute('aria-hidden', 'true');
   cursor.innerHTML = '<span class="demo-click-ring"></span><svg class="demo-cursor-glyph" viewBox="0 0 28 36" fill="none" focusable="false"><path d="M4 2v26l6.3-6.7 5 11 4-2.1-5.1-10.3H24L4 2Z" fill="#f7f8fb" stroke="#101215" stroke-width="1.6" stroke-linejoin="round"/></svg>';
   demo.append(cursor);
+  const notice = document.createElement('div');
+  notice.className = 'demo-privacy-notice';
+  notice.hidden = true;
+  notice.setAttribute('role', 'status');
+  notice.setAttribute('aria-live', 'polite');
+  notice.setAttribute('aria-atomic', 'true');
+  notice.innerHTML = '<span class="demo-notice-icon" aria-hidden="true"><img src="/assets/incognito.svg" width="23" height="23" alt=""></span><div><span class="demo-notice-label">Incognito demo</span><strong class="demo-notice-title"></strong><small>Actual capture behavior varies by app and macOS.</small></div>';
+  demo.append(notice);
+  const noticeTitle = notice.querySelector('.demo-notice-title');
   const timers = new Set(), animations = new Set();
   let eligible = false, armed = true, interacted = false;
+  let noticeTimer;
 
-  function setPrivacy(enabled) {
+  function hideNotice() {
+    clearTimeout(noticeTimer);
+    notice.hidden = true;
+    noticeTitle.textContent = '';
+  }
+  function showNotice() {
+    clearTimeout(noticeTimer);
+    notice.hidden = false;
+    noticeTitle.textContent = 'Cue is invisible/undetectable in screen share.';
+    noticeTimer = setTimeout(hideNotice, 4800);
+  }
+  function setPrivacy(enabled, notify = false) {
     button.setAttribute('aria-pressed', String(enabled));
     button.querySelector('img').src = enabled ? '/assets/incognito.svg' : '/assets/eye.svg';
     demo.classList.toggle('demo-protected', enabled);
     demo.classList.toggle('demo-detectable', !enabled);
+    if (!enabled) hideNotice();
+    else if (notify) showNotice();
   }
   function stop(state = 'idle') {
     cursor.hidden = true;
     timers.forEach(clearTimeout); timers.clear();
     animations.forEach(animation => animation.cancel()); animations.clear();
     button.classList.remove('demo-auto-hover', 'demo-auto-press');
+    if (state !== 'complete') hideNotice();
     demo.dataset.privacyDemo = state;
   }
   function after(delay, action) {
@@ -57,7 +81,7 @@ export function setupPrivacyDemo(demo) {
       button.classList.add('demo-auto-press');
       animate(cursor.querySelector('svg'), [{ transform: 'scale(1)' }, { transform: 'scale(.84)', offset: .45 }, { transform: 'scale(1)' }], { duration: 220 });
       animate(cursor.querySelector('.demo-click-ring'), [{ opacity: .8, transform: 'translate(-50%,-50%) scale(.45)' }, { opacity: 0, transform: 'translate(-50%,-50%) scale(2.3)' }], { duration: 550 });
-      setPrivacy(true);
+      setPrivacy(true, true);
       demo.dataset.privacyDemo = 'protected';
     });
     after(1730, () => button.classList.remove('demo-auto-press'));
@@ -68,7 +92,7 @@ export function setupPrivacyDemo(demo) {
   demo.addEventListener('pointerdown', pauseForInteraction, { capture: true });
   demo.addEventListener('keydown', pauseForInteraction, { capture: true });
   demo.addEventListener('focusin', pauseForInteraction);
-  button.addEventListener('click', () => { stop('interactive'); setPrivacy(button.getAttribute('aria-pressed') !== 'true'); });
+  button.addEventListener('click', () => { stop('interactive'); setPrivacy(button.getAttribute('aria-pressed') !== 'true', true); });
   motion.addEventListener('change', () => {
     stop();
     if (motion.matches) { setPrivacy(true); demo.dataset.privacyDemo = 'reduced-motion'; }

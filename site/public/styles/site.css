@@ -210,6 +210,17 @@ button,input{font:inherit}button,a,input,summary{-webkit-tap-highlight-color:tra
 .demo-protected .cue-window{outline-color:#716777;transform:scale(.98)}
 @media(prefers-reduced-motion:reduce){.demo-cursor{display:none!important}.cue-window{transition:none}.cue-toolbar button.demo-auto-press{transform:none}}
 
+/* Status popup belongs to the illustrated interaction, never the real capture state. */
+.demo-privacy-notice{position:absolute;left:50%;top:105px;z-index:4;display:flex;align-items:center;gap:12px;width:min(410px,calc(100% - 34px));padding:15px 18px;border:1px solid #baa0ed66;border-radius:15px;background:linear-gradient(135deg,#30213ef5,#1c1525f5);box-shadow:0 15px 45px #0008,0 0 24px #b8a5ff12;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);transform:translateX(-50%);text-align:left;pointer-events:none;animation:demo-notice-in .25s ease-out both}
+.demo-privacy-notice[hidden]{display:none}
+.demo-notice-icon{display:grid;place-items:center;width:40px;height:40px;flex:none;border:1px solid #d7beff32;border-radius:12px;background:#b8a5ff16;color:#e9dbff}
+.demo-notice-icon img{display:block;width:23px;height:23px}
+.demo-notice-label{display:block;margin-bottom:4px;font-size:9px;font-weight:700;line-height:1.3;letter-spacing:.1em;text-transform:uppercase;color:#c4a9f0}
+.demo-notice-title{display:block;color:#f6efff;font-size:13px;font-weight:600;line-height:1.5}
+.demo-privacy-notice small{display:block;margin-top:5px;font-size:10px;line-height:1.5;color:#b3a5c1}
+@keyframes demo-notice-in{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+@media(max-width:700px){.demo-privacy-notice{top:89px;padding:13px 15px;gap:10px}.demo-notice-title{font-size:12px}.demo-notice-icon{width:35px;height:35px}.demo-notice-label{font-size:8px}.demo-privacy-notice small{font-size:9px}}
+
 .tour-feature>.eyebrow{margin:0 0 18px}
 
 .film-timeline{display:flex;align-items:center;gap:12px;box-sizing:border-box;flex-shrink:0;width:100%;height:var(--film-timeline-height);padding:0 16px;background:linear-gradient(180deg,#1a1521,#110e17);border-top:1px solid #d7c2ff17;color:#d6ccdf;font-size:11px;font-weight:500;font-variant-numeric:tabular-nums}
