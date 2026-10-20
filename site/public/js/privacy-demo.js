@@ -14,9 +14,7 @@ export function setupPrivacyDemo(demo) {
   notice.setAttribute('role', 'status');
   notice.setAttribute('aria-live', 'polite');
   notice.setAttribute('aria-atomic', 'true');
-  notice.innerHTML = '<span class="demo-notice-icon" aria-hidden="true"><img src="/assets/incognito.svg" width="23" height="23" alt=""></span><div><span class="demo-notice-label">Incognito demo</span><strong class="demo-notice-title"></strong><small>Actual capture behavior varies by app and macOS.</small></div>';
   demo.append(notice);
-  const noticeTitle = notice.querySelector('.demo-notice-title');
   const timers = new Set(), animations = new Set();
   let eligible = false, armed = true, interacted = false;
   let noticeTimer;
@@ -24,17 +22,16 @@ export function setupPrivacyDemo(demo) {
   function hideNotice() {
     clearTimeout(noticeTimer);
     notice.hidden = true;
-    noticeTitle.textContent = '';
+    notice.textContent = '';
   }
   function showNotice() {
     clearTimeout(noticeTimer);
     notice.hidden = false;
-    noticeTitle.textContent = 'Cue is invisible/undetectable in screen share.';
+    notice.textContent = 'Cue is invisible/undetectable in screen share.';
     noticeTimer = setTimeout(hideNotice, 4800);
   }
   function setPrivacy(enabled, notify = false) {
     button.setAttribute('aria-pressed', String(enabled));
-    button.querySelector('img').src = enabled ? '/assets/incognito.svg' : '/assets/eye.svg';
     demo.classList.toggle('demo-protected', enabled);
     demo.classList.toggle('demo-detectable', !enabled);
     if (!enabled) hideNotice();

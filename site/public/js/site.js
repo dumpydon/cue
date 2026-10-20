@@ -2,10 +2,12 @@
 import { setupFilmPlayers } from './film-player.js';
 import { setupProductExamples } from './ui-demo.js';
 import { setupStoryWall } from './story-wall.js';
+import { setupDesktopDemo } from './desktop-demo.js';
 const one = (selector, root = document) => root.querySelector(selector);
 const all = (selector, root = document) => [...root.querySelectorAll(selector)];
 const motion = matchMedia('(prefers-reduced-motion: reduce)');
 const refreshFilms = setupFilmPlayers();
+const refreshDesktop = setupDesktopDemo();
 setupProductExamples();
 setupStoryWall();
 
@@ -79,7 +81,7 @@ modal?.addEventListener('click', event => {
   const r = modal.getBoundingClientRect();
   if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) modal.close();
 });
-modal?.addEventListener('close', () => { one('video', modal).pause(); document.body.style.overflow = ''; tourFocus?.focus(); refreshFilms(); });
+modal?.addEventListener('close', () => { one('video', modal).pause(); document.body.style.overflow = ''; tourFocus?.focus(); refreshFilms(); refreshDesktop(); });
 
 if (!motion.matches && typeof IntersectionObserver === 'function') {
   const observer = new IntersectionObserver(entries => entries.forEach(entry => {

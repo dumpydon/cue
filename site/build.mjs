@@ -51,7 +51,7 @@ export async function build({ sourceCheck = false } = {}) {
   await mkdir(output, { recursive: true });
   await cp(path.join(here, 'public'), output, { recursive: true });
   const snippets = {};
-  for (const [name, file] of Object.entries({ SITE_NAV: 'nav', SITE_FOOTER: 'footer', DOWNLOAD_MENU: 'download-menu', FILM_PLAYER: 'film-player' })) snippets[name] = await readFile(path.join(here, 'components', file + '.html'), 'utf8');
+  for (const [name, file] of Object.entries({ SITE_NAV: 'nav', SITE_FOOTER: 'footer', DOWNLOAD_MENU: 'download-menu', FILM_PLAYER: 'film-player', DESKTOP_DEMO: 'desktop-demo' })) snippets[name] = await readFile(path.join(here, 'components', file + '.html'), 'utf8');
   const film = JSON.parse(await readFile(path.join(here, 'film.json'), 'utf8'));
   const poster = await readFile(path.join(here, 'public/media/cue-launch-poster.jpg'));
   const mediaVersions = { '/media/cue-launch.mp4': film.sha256.slice(0, 12), '/media/cue-launch.vtt': film.sha256.slice(0, 12), '/media/cue-launch-poster.jpg': createHash('sha256').update(poster).digest('hex').slice(0, 12) };

@@ -1,0 +1,53 @@
+.hero-experience{position:relative;max-width:1168px;margin:50px auto 0;padding:0 24px;text-align:center}
+.hero-experience .media-note{max-width:82ch;margin:16px auto 0;font-size:10px}
+.hero-experience .compatible-tools{margin-top:30px}
+.desktop-stage.session-scene{position:relative;isolation:isolate;max-width:none;width:100%;aspect-ratio:1.6;margin:0;padding:0;overflow:hidden;border:1px solid #ffffff21;border-radius:20px;background:#ffda9f url('/assets/macos-sunrise.svg') center/cover no-repeat;box-shadow:0 30px 90px #0005,0 12px 70px #a17cf226;touch-action:pan-y}
+.desktop-menu-bar{position:absolute;inset:0 0 auto;z-index:2;display:flex;align-items:center;gap:14px;height:32px;padding:0 16px;background:#fff2;color:#352b36;font-size:10px;font-weight:500;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.desktop-menu-bar>img{filter:brightness(.24)}
+.desktop-platforms{display:flex;align-items:center;gap:6px;margin-left:auto;color:#352a38;font-size:10px;font-weight:650}
+.desktop-platforms img{object-fit:contain}.desktop-platform-plus{opacity:.45;margin-inline:3px}.desktop-clock{margin-left:8px;font-size:9px}
+.desktop-share-status{display:grid;place-items:center;flex:none;width:32px;height:23px;margin-left:3px;border:1px solid #ffffff38;border-radius:6px;background:#7952d8;color:#fff;box-shadow:inset 0 1px 0 #ffffff24,0 1px 3px #4a2c701c}
+.desktop-share-status svg{display:block;width:22px;height:18px}
+.desktop-meeting{position:absolute;inset:11% 8% 13%;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.desktop-meeting-video{display:block;width:auto;height:100%;max-width:100%;object-fit:contain;border-radius:16px;filter:drop-shadow(0 15px 30px #30122766);background:transparent;pointer-events:auto}
+.cue-floating-app{position:absolute;z-index:3;left:50%;top:56px;width:min(64%,640px);transform:translateX(-50%) scale(var(--cue-scale,.65));transform-origin:top center}
+.has-desktop-js .cue-floating-app{left:0;top:0;transform:translate3d(var(--cue-x,0px),var(--cue-y,0px),0) scale(var(--cue-scale,.65));transform-origin:top left;will-change:transform}
+.desktop-stage .cue-toolbar{max-width:100%;gap:13px;margin-bottom:12px;padding:8px 12px;white-space:nowrap;user-select:none;-webkit-user-select:none;font-size:11px;box-shadow:0 8px 24px #0004}
+.desktop-stage .cue-toolbar button{cursor:pointer;touch-action:manipulation}
+.desktop-stage #demo-incognito{width:29px;height:29px;padding:3px;border-radius:6px;color:#f3effa;flex:none}
+.desktop-stage #demo-incognito>svg{display:block;width:23px;height:23px}
+.desktop-stage #demo-incognito:focus-visible{outline:2px solid #c7a9ff;outline-offset:3px}
+#demo-incognito[aria-pressed=true] .demo-icon-visible,#demo-incognito[aria-pressed=false] .demo-icon-incognito{display:none}
+.desktop-stage .cue-window:focus-visible{outline:2px solid #e2d1ff;outline-offset:7px}
+.desktop-stage.is-dragging,.desktop-stage.is-dragging .cue-window{cursor:grabbing}
+.desktop-stage.is-dragging .cue-window{user-select:none;-webkit-user-select:none}
+.desktop-stage .cue-toolbar .desktop-collapse{display:block;padding:0;font:inherit;color:inherit;cursor:pointer;border-radius:5px}
+.desktop-stage .cue-toolbar .desktop-collapse:hover{background:#ffffff10}
+.desktop-stage .cue-toolbar .session-label{font-size:10px}
+.desktop-stage .cue-window{display:flex;flex-direction:column;max-width:none;max-height:400px;padding:18px 20px;overflow:hidden;border:1px solid #d4c3e269;border-radius:20px;background:#28232dd9;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);box-shadow:0 20px 55px #0006,inset 0 1px 0 #ffffff10;cursor:grab;touch-action:none}
+.desktop-stage .cue-window pre,.desktop-stage .cue-window code{cursor:text;user-select:text;-webkit-user-select:text}
+.desktop-stage .cue-window[hidden]{display:none}
+.desktop-cue-scroll{min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:#a68abc50 transparent}
+.desktop-cue-footer{flex:none}
+.desktop-stage .cue-status{font-size:8px}.desktop-stage .cue-question{margin-top:16px;margin-bottom:16px;font-size:11px}
+.desktop-stage .cue-answer{font-size:14px;line-height:1.55;min-height:90px;max-height:none;overflow:visible}
+.desktop-stage .cue-answer p+p{margin-top:8px}.desktop-stage .cue-answer pre{font-size:10px;padding:11px}
+.desktop-stage .cue-transcript{margin-top:12px;padding:8px 10px;font-size:9px}
+.desktop-stage .cue-actions{margin-top:10px;font-size:10px;gap:9px}
+.desktop-stage .cue-composer{margin-top:12px;padding:10px;font-size:10px}
+.desktop-stage .cue-send{height:23px;width:23px;font-size:9px}
+.desktop-stage .demo-privacy-notice{top:110px;z-index:6;width:min(780px,90%);font-size:clamp(24px,3.8vw,40px);text-shadow:0 2px 5px #000,0 6px 22px #000c}
+.desktop-dock{position:absolute;left:50%;bottom:10px;z-index:2;display:flex;align-items:center;gap:5px;transform:translateX(-50%);padding:5px 7px;border:1px solid #fff5;border-radius:15px;background:#fff3;box-shadow:0 8px 25px #371d401a;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.desktop-dock>img,.desktop-cue-icon{display:block;width:42px;height:42px;object-fit:contain;flex:none}
+.desktop-meet-icon{display:grid;place-items:center;flex:none;width:38px;height:38px;margin:2px;border:1px solid #ffffff80;border-radius:10px;background:#f7f4f8;box-shadow:0 2px 5px #0002}
+.desktop-cue-icon{padding:0;border:0;border-radius:10px;background:none;cursor:pointer;transition:transform .2s}
+.desktop-cue-icon:hover{transform:translateY(-4px)}.desktop-cue-icon:focus-visible{outline:2px solid #422967;outline-offset:3px}.desktop-cue-icon img{display:block;width:42px;height:42px}
+.desktop-dock-divider{height:31px;width:1px;margin-inline:5px;background:#fff7}
+.desktop-demo-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:15px 4px 0;color:#a89bb5;font-size:11px}
+.desktop-drag-hint{margin:0;text-align:left}.desktop-drag-hint[hidden],.desktop-demo-controls[hidden]{display:none}
+.desktop-demo-controls{display:flex;gap:8px;flex-wrap:wrap}.desktop-demo-controls button{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border:1px solid #d6bfff20;border-radius:99px;background:#b8a5ff06;color:#b9a8ca;font:500 10px/1.5 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;cursor:pointer}
+.desktop-demo-controls button:hover{border-color:#d6bfff55;color:#eee3fa}.desktop-demo-controls button:focus-visible{outline:2px solid var(--acc);outline-offset:3px}
+.hero-experience .demo-tabs{margin-top:17px}
+@media(max-width:820px){.cue-floating-app{width:72%}.desktop-stage .cue-toolbar{gap:11px;font-size:10px}.desktop-stage .cue-toolbar .session-label{display:none}.desktop-stage .cue-window{padding:15px 17px}.desktop-stage .cue-answer{font-size:13px;min-height:85px}.desktop-stage .cue-question{font-size:10px}.desktop-stage .cue-actions{font-size:9px;gap:7px}.desktop-stage .cue-composer{font-size:9px}.desktop-dock>img,.desktop-cue-icon,.desktop-cue-icon img{width:36px;height:36px}.desktop-meet-icon{width:33px;height:33px;margin:1px}.desktop-meet-icon img{width:26px;height:26px}.desktop-dock{bottom:8px}}
+@media(max-width:700px){.hero-experience{padding-inline:15px;margin-top:35px}.desktop-stage.session-scene{aspect-ratio:auto;min-height:560px;border-radius:17px;margin:0}.cue-floating-app{width:calc(100% - 42px);max-width:480px}.desktop-menu-bar{height:30px;gap:10px;padding-inline:11px}.desktop-menu-bar>span:not(.desktop-clock):not(.desktop-share-status){display:none}.desktop-clock{display:none}.desktop-platforms{font-size:9px;gap:5px}.desktop-platforms img{width:15px;height:15px}.desktop-meeting{inset:11% 5% auto;height:auto;aspect-ratio:1424/920}.desktop-meeting-video{width:100%;height:auto;border-radius:10px}.desktop-stage .cue-toolbar{padding:8px 11px;margin-bottom:12px}.desktop-stage .cue-window{padding:16px 15px;border-radius:17px}.desktop-stage .cue-answer{font-size:13px;min-height:110px}.desktop-stage .cue-status{font-size:8px}.desktop-stage .cue-question{margin-top:14px;margin-bottom:14px}.desktop-stage .demo-privacy-notice{top:115px;font-size:clamp(25px,5vw,32px)}.desktop-demo-bar{justify-content:center;font-size:10px}.desktop-drag-hint{text-align:center;width:100%}.hero-experience .media-note{font-size:9px;padding-inline:8px}.hero-experience .compatible-tools{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.desktop-cue-icon{transition:none}.has-desktop-js .cue-floating-app{will-change:auto}}

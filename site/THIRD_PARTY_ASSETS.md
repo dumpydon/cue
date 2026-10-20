@@ -10,6 +10,14 @@ The product marks identify the third-party tools named in the compatibility row.
 
 - `film-src/assets/leetcode.png`: LeetCode's [original reversed logo](https://leetcode.com/static/images/LeetCode_logo_rvs.png), used in the illustrated browser tab and LeetCode page header. Only transparent padding is cropped before resizing. The mark remains the property of LeetCode.
 
+## Interactive desktop visuals
+
+The site owner explicitly requested reuse of Cluely's public demo visuals and stated that they have permission to use them. The interactive Cue interface and its drag behavior are implemented locally for this site.
+
+- `public/media/desktop-demo/meeting.mp4` and `meeting-poster.jpg`: derived from Cluely's [public hero clip](https://cluely.com/videos/home/hero-v2/pro-res-vp9-chrome.webm). The meeting window is cropped from its transparent outer padding, converted to H.264 at 1424 × 920 / 30 fps, and the audio track is removed entirely. The poster is a still from that clip. The footage is a demonstration, not a recording of a Cue customer meeting or a testimonial.
+- `public/assets/desktop/{launchpad,safari,settings,zoom,trash}.png`: the corresponding product icons from `https://cluely.com/images/pages/home/<name>-icon.png`, used for the illustrated macOS Dock. Apple and Zoom retain their respective marks.
+- Cue's own existing app icon and the existing Google Meet compatibility mark complete the Dock. The wallpaper is this repository's original `macos-sunrise.svg`.
+
 ## SVGL license notice
 
 MIT License
