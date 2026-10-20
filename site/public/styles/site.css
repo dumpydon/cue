@@ -211,10 +211,10 @@ button,input{font:inherit}button,a,input,summary{-webkit-tap-highlight-color:tra
 @media(prefers-reduced-motion:reduce){.demo-cursor{display:none!important}.cue-window{transition:none}.cue-toolbar button.demo-auto-press{transform:none}}
 
 /* Status popup belongs to the illustrated interaction, never the real capture state. */
-.demo-privacy-notice{position:absolute;left:50%;top:108px;z-index:4;width:min(650px,calc(100% - 42px));transform:translateX(-50%);text-align:center;color:#fff;font-size:clamp(24px,3.5vw,36px);font-weight:750;line-height:1.18;letter-spacing:-.025em;text-wrap:balance;text-shadow:0 2px 12px #000,0 0 35px #1b0b31;pointer-events:none;animation:demo-notice-in .25s ease-out both}
+.demo-privacy-notice{position:absolute;left:50%;top:50%;z-index:4;width:calc(100% - 32px);transform:translate(-50%,-50%);text-align:center;color:#fff;font-size:clamp(23.52px,3.43vw,35.28px);font-weight:750;line-height:1.18;letter-spacing:-.025em;white-space:nowrap;text-wrap:nowrap;text-shadow:0 2px 12px #000,0 0 35px #1b0b31;pointer-events:none;animation:demo-notice-in .25s ease-out both}
 .demo-privacy-notice[hidden]{display:none}
-@keyframes demo-notice-in{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
-@media(max-width:700px){.demo-privacy-notice{top:93px;font-size:clamp(22px,4vw,28px)}}
+@keyframes demo-notice-in{from{opacity:0;transform:translate(-50%,calc(-50% + 8px))}to{opacity:1;transform:translate(-50%,-50%)}}
+@media(max-width:700px){.demo-privacy-notice{top:50%;font-size:clamp(21.56px,3.92vw,27.44px)}}
 
 .tour-feature>.eyebrow{margin:0 0 18px}
 

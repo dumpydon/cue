@@ -11,7 +11,7 @@ export function setupDesktopDemo() {
   const video = stage.querySelector('video');
   const toggle = section.querySelector('[data-desktop-video-toggle]');
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
-  const windowScale = .65;
+  const windowScale = .7475;
   floating.style.setProperty('--cue-scale', String(windowScale));
   let x = 0, y = 0, moved = false, drag = null;
   let visible = false, playbackChoice = null;
