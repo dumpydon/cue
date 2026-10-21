@@ -45,3 +45,7 @@ SOFTWARE.
 ## Website typography
 
 - `public/assets/fonts/geist-latin.woff2`: Geist, the same Latin font asset used for the reference website’s section headings. Typeface by the Geist Project Authors; licensed under the SIL Open Font License 1.1. The complete notice is included in `public/assets/fonts/OFL-Geist.txt`. Reference asset: `https://cluely.com/_next/static/media/22a5144ee8d83bca-s.p.woff2`; license: [vercel/geist-font](https://github.com/vercel/geist-font/blob/main/OFL.txt).
+
+## Particle background
+
+- `public/js/vendor/raisedhand-grain-engine.js`: Raised Hand's public grain engine, adapted under the permission stated by the user. Source: <https://raisedhand.ai/landing/grain-engine.js>, retrieved 21 October 2026. Geometry, particle paths, and timing are retained. Cue-specific compositing and same-origin worker changes are documented in `PARTICLE_BACKGROUND.md`.

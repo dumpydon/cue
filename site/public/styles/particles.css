@@ -1,0 +1,7 @@
+/* The original Raised Hand dunes and spiral, composited over Cue's existing colors. */
+.has-particle-background{position:relative;isolation:isolate}
+.site-particles{position:absolute;inset:0;z-index:-1;pointer-events:none;overflow:hidden;opacity:0;transition:opacity .9s cubic-bezier(.2,.7,.2,1)}
+.site-particles[data-ready=true]{opacity:1}
+.site-particles>canvas{position:absolute;top:0;left:0;display:block;width:100%;height:100vh;will-change:transform}
+.particle-hero-anchor{position:absolute;inset:0 0 auto;height:clamp(660px,calc(100svh - 20px),1040px);pointer-events:none}
+@media(prefers-reduced-motion:reduce){.site-particles{transition:none}}
