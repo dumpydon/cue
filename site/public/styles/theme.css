@@ -1,0 +1,51 @@
+/* Local black-and-blue design preview. Geist and the blue family match the reference. */
+@font-face{font-family:Geist;src:url('/assets/fonts/geist-latin.woff2') format('woff2');font-style:normal;font-weight:100 900;font-display:swap}
+:root{--font-site:Geist,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--bg:#05070b;--panel:#0c121b;--card:#111924;--raised:#1a2637;--active:#1a2637;--track:#26364d;--card2:var(--raised);--well:var(--panel);--line:#28384d;--tx:#f4f7fc;--tx2:#a4afbf;--mut:#7f8c9e;--acc:#4d96ff;--accd:#3152f4;--blue:#3080ff;--blue-soft:#bdd8ff;--macos-share-indicator:#7952d8}
+body{font-family:var(--font-site)}
+.hero h1,.block>.copy2 h2,.spine h2,.center>h2,.stories-head h2,.dl h2,.document h1,.document article h2,.error-page h1,.film-section-title,.caption h1{font-family:var(--font-site);font-weight:500;letter-spacing:-.035em;line-height:1.18}
+.hero h1{font-weight:500;letter-spacing:-.045em;line-height:1.12}
+.hero h1 em{background:linear-gradient(100deg,#8dc8ff,#3080ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.block h2,.spine h2,.center h2,.stories-head h2{font-size:clamp(30px,4.6vw,52px);font-weight:500;letter-spacing:-.035em;line-height:1.18}
+.block h2,.spine h2,.center h2,.stories-head h2,.dl h2,.document>header h1{background:linear-gradient(100deg,#f6f9ff 15%,#a6b7cf 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.eyebrow{font-family:var(--font-site);font-size:16px;font-weight:500;line-height:1.5;letter-spacing:-.015em;text-transform:none;color:#71adff;margin-bottom:10px}
+.beta{font-family:var(--font-site);font-size:10px;font-weight:500;letter-spacing:0;text-transform:none;background:#3080ff15;color:#91beff}
+.site-nav .wrap{background:rgba(8,13,22,.78);border-color:#94beff13;box-shadow:0 8px 38px #0003}
+.wordmark{font-weight:650}
+.site-nav .dlbtn,.dlbtn,.btn:not(.ghost){background:radial-gradient(110% 120% at 15% 5%,#3a9af5,#1e65eb 55%,#2448e2);color:#fff;border:1px solid #91bfff40;box-shadow:0 8px 30px #1769ee40,inset 0 1px 0 #b9dcff55;font-family:var(--font-site);font-weight:550}
+.site-nav .dlbtn{box-shadow:inset 0 1px 0 #b9dcff55}
+.dlbtn:hover,.btn:not(.ghost):hover{box-shadow:0 12px 36px #1769ee66,inset 0 1px 0 #d3e9ff66}
+.dlgrp::before{background:radial-gradient(ellipse 62% 95% at 50% 55%,#3080ff55,transparent 72%)}
+.btn.ghost{background:#0c1420;color:#c1cddb;border-color:#6da5ff1c}
+.btn.ghost:hover{background:#15243a;color:#f2f7ff}
+.hero::before{background:radial-gradient(ellipse 60% 45% at 50% 18%,#086aff26,transparent 65%)}
+.dl::before{background:radial-gradient(ellipse 46% 52% at 50% 50%,#3080ff38,#0a4fc218 48%,transparent 70%)}
+.dlmenu{background:#0b1320f7;border-color:#8cb7f31f;box-shadow:0 18px 50px #0009,0 0 34px #3080ff12}
+.dlmenu .dm-ic{background:#3080ff15;color:#77afff}
+.hero-experience .compatible-tools small{font-family:var(--font-site);font-size:12px;letter-spacing:0;text-transform:none;color:#8b9aaf}
+.hero-experience .compatible-tools{color:#a8b6c9}
+.desktop-demo-bar{color:#9ba5b5}
+.desktop-demo-controls button{font-family:var(--font-site);color:#9dbbe2;border-color:#69a5ff24;background:#3080ff08}
+.desktop-demo-controls button:hover{color:#e2eeff;border-color:#69a5ff66}
+.document .release-label{font-family:var(--font-site);font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;color:#83b5ff}
+.stories-toggle{color:#a9c6ec;border-color:#6aa5fa2b;background:#3080ff0a}
+.story-card{background:linear-gradient(140deg,#152235bf,#0c1119 70%);border-color:#75a7ec20}
+.story-card:hover{background:linear-gradient(140deg,#1b304abf,#0e1723 70%);border-color:#65a1f25c}
+.story-person b{font-weight:500}.story-person small{color:#8598b2}.stories-disclosure{color:#8e9fb6}
+.story-card blockquote{color:#d1dce9}.stories-invitation a{color:#75adff}
+.site-footer{background:#05070b}
+.site-footer .fbwho{color:#5b9cff}
+.site-footer .fbwho:hover{color:#bbd9ff}
+.site-footer .footmega{color:#3080ff1c}
+.site-footer .fbicon{background:#0c1626;border-color:#76abff20;box-shadow:0 10px 26px #3080ff24}
+.site-footer .footcol a{color:#c4d0df}.site-footer .footh{color:#879bb7}.site-footer .footdesc{color:#93a4bc}
+.step-label,.caption .step-label{font-family:var(--font-site);font-weight:500;letter-spacing:0;text-transform:none;color:#88b8ff}
+.player{background:linear-gradient(#111d2b,#080f1a)}
+.caption{background:#0b1421}.duration-badge{color:#b4d2ff;background:#3080ff16;border-color:#3080ff30}
+.timeline input{accent-color:#3080ff}
+.chapters button[aria-current="step"]{background:#3080ff1a;border-color:#3080ff38;color:#b4d2ff}
+@media(max-width:700px){.eyebrow{font-size:14px}.block h2,.spine h2,.center h2,.stories-head h2{font-size:clamp(29px,6vw,42px)}.hero-experience .compatible-tools small{font-size:11px}}
+
+/* Product previews retain Cue's real purple application palette. */
+.cue-floating-app,.native-panel,.share-cue{--panel:#121315;--track:#2a2b2d;--card:#17181a;--raised:#2a2b2d;--active:#2a2b2d;--line:#333336;--acc:#b8a5ff;--accd:#8b65d6;--tx:#f3f4f6;--tx2:#a09ca8;--mut:#85818e;color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
+.ready-panel,.ready-message,.settings-window,.system-dialog,.finder-window,.mac-menu,.desktop-menu-bar{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
+.player button:focus-visible,.player input:focus-visible,.standalone-footer a:focus-visible{outline-color:var(--acc)}

@@ -9,11 +9,11 @@ import {createReplayLoop,pageReplayBudget,REPLAY_LIMIT} from './replay-loop.js'
   const all=selector=>Array.from(document.querySelectorAll(selector))
   const motion=matchMedia('(prefers-reduced-motion: reduce)')
   const steps=[
-    {start:0,end:3,preview:.6,label:'INSTALL',title:'Download the ZIP. Move Cue into Applications.',caption:'Choose Apple silicon or Intel. Unzip the downloaded archive.'},
-    {start:3,end:6,preview:4.5,label:'DISMISS THE WARNING',title:'Choose Done. Keep the app in Applications.',caption:'For the unverified-developer warning, choose Done (or Cancel / OK), rather than Move to Bin or Trash.'},
-    {start:6,end:10.5,preview:8.8,label:'PRIVACY & SECURITY',title:'System Settings → Privacy & Security → Open Anyway.',caption:'Scroll down to Security and find Cue’s blocked-app notice. Some macOS versions show Open first.'},
-    {start:10.5,end:13,preview:11.6,label:'CONFIRM ON YOUR MAC',title:'Confirm Open. Authenticate if your Mac asks.',caption:'Use Touch ID or your Mac login password if prompted. This approval is for Cue.'},
-    {start:13,end:15,preview:14.5,label:'YOUR MODEL',title:'Open Cue Settings. Add your own provider key.',caption:'Choose a provider, save your key, and start a conversation. Cue opens in incognito.'},
+    {start:0,end:3,preview:.6,label:'Install',title:'Download the ZIP. Move Cue into Applications.',caption:'Choose Apple silicon or Intel. Unzip the downloaded archive.'},
+    {start:3,end:6,preview:4.5,label:'Dismiss the warning',title:'Choose Done. Keep the app in Applications.',caption:'For the unverified-developer warning, choose Done (or Cancel / OK), rather than Move to Bin or Trash.'},
+    {start:6,end:10.5,preview:8.8,label:'Privacy & Security',title:'System Settings → Privacy & Security → Open Anyway.',caption:'Scroll down to Security and find Cue’s blocked-app notice. Some macOS versions show Open first.'},
+    {start:10.5,end:13,preview:11.6,label:'Confirm on your Mac',title:'Confirm Open. Authenticate if your Mac asks.',caption:'Use Touch ID or your Mac login password if prompted. This approval is for Cue.'},
+    {start:13,end:15,preview:14.5,label:'Your model',title:'Open Cue Settings. Add your own provider key.',caption:'Choose a provider, save your key, and start a conversation. Cue opens in incognito.'},
   ]
   const desktop=one('.desktop'),viewport=one('.viewport'),play=one('.play-control'),range=one('input[type="range"]'),pointer=one('.demo-pointer')
   let time=0,playing=false,frame=0,last=0,userControlled=false,previousStep=-1,runStarted=false,visible=true,resumeWhenVisible=false

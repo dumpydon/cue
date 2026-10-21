@@ -41,3 +41,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## Website typography
+
+- `public/assets/fonts/geist-latin.woff2`: Geist, the same Latin font asset used for the reference website’s section headings. Typeface by the Geist Project Authors; licensed under the SIL Open Font License 1.1. The complete notice is included in `public/assets/fonts/OFL-Geist.txt`. Reference asset: `https://cluely.com/_next/static/media/22a5144ee8d83bca-s.p.woff2`; license: [vercel/geist-font](https://github.com/vercel/geist-font/blob/main/OFL.txt).
