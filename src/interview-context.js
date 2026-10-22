@@ -82,18 +82,45 @@ const CATEGORY_PATTERNS = {
   ],
 };
 
-function detectCategory(transcript) {
-  if (!transcript || !transcript.length) return 'general';
-  // Look at the last 5 "Them" turns — the interviewer's recent questions
-  const recentThem = transcript
-    .filter(t => t.channel === 'them')
-    .slice(-5)
-    .map(t => t.text)
-    .join(' ');
-  if (!recentThem) return 'general';
-
+function categoryOf(text) {
   for (const [category, patterns] of Object.entries(CATEGORY_PATTERNS)) {
-    if (patterns.some(re => re.test(recentThem))) return category;
+    if (patterns.some(re => re.test(text))) return category;
+  }
+  return 'general';
+}
+
+function detectCategory(transcript, question = '') {
+  const source = Array.isArray(transcript) ? transcript : [];
+  const them = source
+    .filter(turn => turn?.channel === 'them' && typeof turn.text === 'string' && turn.text.trim())
+    .slice(-5).map(turn => turn.text.trim()).reverse();
+  const acknowledgement = /^(?:ok(?:ay)?|yes|yeah|right|sure|thanks|thank you|great|got it)[.!\s]*$/i;
+  const continuation = /\b(that|this|those|it|there|then|more|next|elaborate|expand)\b|^why\??$/i;
+  const explicit = typeof question === 'string' ? question.trim() : '';
+  const current = explicit || them.find(text => !acknowledgement.test(text)) || '';
+  const category = categoryOf(current);
+  if (category !== 'general') return category;
+  if (!explicit && current) {
+    const end = source.findLastIndex(turn => turn?.channel === 'them' && turn.text?.trim() === current);
+    let joined = current;
+    // Recover one question split across STT chunks, without mixing in an older
+    // completed question or crossing the user's intervening reply.
+    for (let index = end - 1; index >= Math.max(0, end - 3); index--) {
+      const previous = source[index];
+      if (previous?.channel !== 'them' || typeof previous.text !== 'string' || /[.!?…]\s*$/.test(previous.text)) break;
+      joined = previous.text.trim() + ' ' + joined;
+      const combined = categoryOf(joined);
+      if (combined !== 'general') return combined;
+    }
+  }
+  // Only a short referential follow-up can inherit an earlier topic. A fresh
+  // unclassified question must not get stale behavioral or compensation context.
+  if (current.length <= 140 && continuation.test(current)) {
+    for (const text of them) {
+      if (text === current || acknowledgement.test(text)) continue;
+      const previous = categoryOf(text);
+      if (previous !== 'general') return previous;
+    }
   }
   return 'general';
 }
@@ -165,11 +192,11 @@ function buildJDBlock(jd, limit = 600) {
  * Returns a system-prompt string with only the context fields relevant to
  * the detected interview category. Returns null for leetcode mode.
  */
-function buildInterviewContext(settings, mode, transcript) {
+function buildInterviewContext(settings, mode, transcript, question = '') {
   // Coding problems never need personal context
   if (mode === 'leetcode') return null;
 
-  const category = detectCategory(transcript || []);
+  const category = detectCategory(transcript || [], question);
 
   const resume    = settings.resumeText || '';
   const jd        = settings.jobDescription || '';

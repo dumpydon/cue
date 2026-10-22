@@ -23,6 +23,8 @@ const { createSTT } = require('./src/stt');
 const { parseDocumentFile } = require('./src/resume');
 const { createLLM } = require('./src/llm');
 const { MODES } = require('./src/prompts');
+const { questionTranscript, responseTokenBudget } = require('./src/response-context');
+const { createResponseThread, responseScope } = require('./src/response-thread');
 const { rms16 } = require('./src/wav');
 const { createStreamingSTT } = require('./src/stt-streaming');
 const { AdaptiveVAD, AudioRingBuffer } = require('./src/vad');
@@ -133,6 +135,7 @@ let sttDisabled = false; // set when the key can't reach any speech model (stops
 const buffers = { you: [], them: [] };
 const transcript = []; // { channel, text, ts } — capped at MAX_TRANSCRIPT_TURNS
 const liveTranscript = { you: null, them: null };
+const responseThread = createResponseThread();
 function transcriptWithLiveSpeech() {
   return [...transcript, ...Object.values(liveTranscript).filter(turn => turn?.text.trim())]
     .sort((a, b) => a.ts - b.ts).slice(-MAX_TRANSCRIPT_TURNS);
@@ -916,24 +919,29 @@ async function setCapturing(active) {
 // -------- feature runner --------
 async function runFeature(mode, userText) {
   if (state.busy) return;
+  if (!Object.hasOwn(MODES, mode)) return;
   const def = MODES[mode];
-  if (!def) return;
+  userText = typeof userText === 'string' ? userText.trim().slice(0, 32000) : '';
   state.busy = true;
   let streamSettled = false; // drop stray tokens from a stream we've already abandoned
+  let threadVersion;
   try {
     // Finish pending mode edits before a toolbar action or global shortcut
     // takes its settings snapshot. A failed save keeps the draft for retry.
     if (win && !win.isDestroyed()) {
       const saved = await win.webContents.executeJavaScript('window.CueMeetingModeUI ? window.CueMeetingModeUI.flush() : true');
-      if (!saved) { send('status', { message: 'Save or correct your meeting mode edits before asking Cue.' }); return; }
+      if (!saved) { send('llm:error', { message: 'Save or correct your meeting mode edits before asking Cue.' }); return; }
     }
     const settings = store.getSettings();
+    threadVersion = responseThread.prepare(responseScope(settings) + ':' + (meetingMemory?.current?.id || 'no-meeting'));
     const llm = createLLM(settings);
     const userBubble = def.userBubble !== null
       ? def.userBubble
       : (mode === 'ask' ? userText : mode === 'answerThis' ? `"${(userText || '').slice(0, 60)}${userText && userText.length > 60 ? '…' : ''}"` : null);
-    const contextTranscript = transcriptWithLiveSpeech();
-    const category = mode !== 'leetcode' ? detectCategory(contextTranscript) : null;
+    const capturedTranscript = transcriptWithLiveSpeech();
+    const contextTranscript = mode === 'answerThis' ? questionTranscript(capturedTranscript, userText) : capturedTranscript;
+    const targetQuestion = ['ask', 'answerThis'].includes(mode) ? userText : '';
+    const category = mode !== 'leetcode' ? detectCategory(contextTranscript, targetQuestion) : null;
     send('llm:start', { userBubble, small: !!def.small, category });
 
     if (!llm.ready) {
@@ -993,8 +1001,19 @@ async function runFeature(mode, userText) {
       return;
     }
 
-    const settingsForPrompt = store.getSettings();
-    let contextBlock = buildInterviewContext(settingsForPrompt, mode, contextTranscript);
+    if (['ask', 'answerThis'].includes(mode) && !userText) {
+      send('llm:error', { message: 'Enter a question, or select a transcribed question to answer.' });
+      return;
+    }
+    if ((mode === 'leetcode' && !imageDataUrl) || (mode === 'assist' && !imageDataUrl && !contextTranscript.length)) {
+      send('llm:error', { message: mode === 'leetcode'
+        ? 'No screen was captured. Allow screen capture or type the coding problem in the question box.'
+        : 'No screen or conversation is available yet. Start listening or type a question so Cue has something to answer.' });
+      return;
+    }
+
+    const settingsForPrompt = settings;
+    let contextBlock = buildInterviewContext(settingsForPrompt, mode, contextTranscript, targetQuestion);
     // Summaries of the last few meetings, so "what did we agree last time?"
     // has something to draw on. Never the current meeting, never leetcode.
     const memoryBlock = mode !== 'leetcode' && meetingMemory ? meetingMemory.memoryBlock() : null;
@@ -1002,6 +1021,9 @@ async function runFeature(mode, userText) {
     const baseSystem = def.buildSystem ? def.buildSystem(contextBlock, settingsForPrompt.aiRules || '') : (def.system || '');
     const system = appendModeContext(baseSystem, settings.meetingModes);
     const built = def.build({ transcript: contextTranscript, userText: userText || '' });
+    // Typed follow-ups retain completed Cue answers. Audio replies use actual
+    // captured speech, and recaps/coding actions start from their own evidence.
+    const turns = responseThread.turns(built, mode === 'ask');
 
     // Watchdog: a provider that stalls mid-stream would otherwise hang the await forever,
     // leaving state.busy = true and wedging every later question until an app restart.
@@ -1015,16 +1037,26 @@ async function runFeature(mode, userText) {
       rearm();
     });
     try {
-      await Promise.race([
+      let streamedAnswer = '';
+      const result = await Promise.race([
         llm.stream({
           system,
-          turns: [{ role: 'user', text: built }],
+          turns,
           imageDataUrl,
-          onToken: (t) => { if (streamSettled) return; rearm(); send('llm:token', { text: t }); },
+          maxTokens: responseTokenBudget(mode, settings.smart),
+          onToken: (t) => {
+            if (streamSettled || typeof t !== 'string') return;
+            streamedAnswer += t; rearm();
+            if (responseThread.isCurrent(threadVersion)) send('llm:token', { text: t });
+          },
           onResponse: settings.provider === publik.PUBLIK_PROVIDER ? (res) => publikNoteHeaders(res && res.headers) : undefined
         }),
         stalled
       ]);
+      const answer = (typeof result === 'string' ? result : streamedAnswer).trim();
+      if (!answer) throw new Error('The model returned no answer. Try again, or choose a different model.');
+      // Failed, empty or timed-out responses never become follow-up context.
+      if (mode !== 'recap') responseThread.commit(threadVersion, built, answer);
     } finally {
       streamSettled = true;
       clearTimeout(watchdog);
@@ -1038,6 +1070,7 @@ async function runFeature(mode, userText) {
     // GET /wallet shortly after the answer — one request per answer, debounced.
     if (settings.provider === publik.PUBLIK_PROVIDER) publikScheduleWalletRefresh();
   } catch (e) {
+    if (threadVersion !== undefined && !responseThread.isCurrent(threadVersion)) { send('llm:done', {}); return; }
     recordEvent({ level: 'error', event: 'llm_failed', msg: e && e.message ? e.message : String(e), frame: 'runFeature', context: { mode, provider: store.getSettings().provider } });
     const action = e && e.action ? e.action : null;
     send('llm:error', { message: e && e.message ? e.message : String(e), action });
@@ -1141,6 +1174,13 @@ ipcMain.handle('answer:copy-text', (event, text) => {
   if (event.sender !== win?.webContents || typeof text !== 'string' || text.length > 1000000) throw new Error('Copy code from a Cue answer.');
   clipboard.writeText(text);
   return true;
+});
+ipcMain.handle('answer-thread:reset', event => {
+  if (event.sender !== win?.webContents) throw new Error('Answer threads are available only in Cue.');
+  if (state.busy) return { ok: false, message: 'Wait for the current answer before starting a new thread.' };
+  responseThread.reset();
+  send('answer-thread:cleared', {});
+  return { ok: true };
 });
 function audioConfiguration(settings) {
   const provider = settings.sttProvider || 'auto';
@@ -1396,6 +1436,10 @@ ipcMain.handle('platform:info', () => ({
 ipcMain.handle('transcript:clear', () => {
   if (meetingMemory) meetingMemory.end().catch(() => {}); // it stays in history with its notes
   transcript.splice(0, transcript.length);
+  liveTranscript.you = null;
+  liveTranscript.them = null;
+  responseThread.reset();
+  send('answer-thread:cleared', {});
   resetSlidesSession();
   send('slides:update', { count: 0, last: null });
   return { ok: true };
@@ -1412,7 +1456,10 @@ ipcMain.handle('slides:clear', () => {
   send('slides:update', { count: 0, last: null });
   return { ok: true };
 });
-ipcMain.on('ask', (_e, payload) => runFeature(payload.mode, payload.text));
+ipcMain.on('ask', (event, payload) => {
+  if (event.sender !== win?.webContents || !payload || typeof payload.mode !== 'string') return;
+  void runFeature(payload.mode, payload.text);
+});
 ipcMain.on('mic:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('you', arrayBuffer); });
 ipcMain.on('system:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('them', arrayBuffer); });
 ipcMain.on('mouse:ignore', (event, v) => {

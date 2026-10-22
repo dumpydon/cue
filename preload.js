@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld('cue', {
   sessionGet: id => ipcRenderer.invoke('sessions:get', id),
   clearTranscript: () => ipcRenderer.invoke('transcript:clear'),
   copyAnswerText: text => ipcRenderer.invoke('answer:copy-text', text),
+  resetAnswerThread: () => ipcRenderer.invoke('answer-thread:reset'),
   slidesList: () => ipcRenderer.invoke('slides:list'),
   slidesState: () => ipcRenderer.invoke('slides:state'),
   slidesClear: () => ipcRenderer.invoke('slides:clear'),
@@ -66,7 +67,7 @@ contextBridge.exposeInMainWorld('cue', {
   log: (msg) => ipcRenderer.send('log', msg),
   on: (channel, cb) => {
     const allowed = ['capture:state', 'llm:start', 'llm:token', 'llm:done', 'llm:error', 'status', 'transcript', 'transcript:restore', 'stt:interim', 'stt:final', 'stt:status', 'vad:state', 'applink:consent-request', 'hide:toggle', 'whisper:download-progress', 'whisper:models-changed', 'publik:state', 'slides:update'];
-    if (!['permissions:changed', 'protection:changed', 'window:zoom-changed', 'ui:reveal', 'ui:open-settings', 'ui:open-sessions', 'models:changed', 'modes:changed'].includes(channel) && !allowed.includes(channel)) return;
+    if (!['permissions:changed', 'protection:changed', 'window:zoom-changed', 'ui:reveal', 'ui:open-settings', 'ui:open-sessions', 'models:changed', 'modes:changed', 'answer-thread:cleared'].includes(channel) && !allowed.includes(channel)) return;
     ipcRenderer.on(channel, (_e, data) => cb(data));
   }
 });

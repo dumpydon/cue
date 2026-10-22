@@ -57,3 +57,19 @@
 .answer-content .katex-error, .answer-content .answer-math-fallback { white-space: pre-wrap; overflow-wrap: anywhere; }
 .answer-plain { white-space: pre-wrap; }
 .session-summary.answer-content, .session-notes li.answer-content { white-space: normal; }
+
+/* A fresh answer thread keeps capture and transcript history available. */
+#answer-thread-bar{position:absolute;top:6px;left:14px;right:14px;display:flex;align-items:center;gap:12px;color:var(--text-muted,#b2a8bd);font-size:10px;line-height:1.4}
+#answer-thread-bar #stt-status{position:static;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+#new-answer-thread{border:1px solid #d7c1ee29;border-radius:7px;background:#c3a8e90b;color:#ded1eb;padding:4px 8px;font:inherit;cursor:pointer;-webkit-app-region:no-drag}
+#new-answer-thread:hover{background:#c3a8e91c;border-color:#d7c1ee55}
+#new-answer-thread:focus-visible{outline:2px solid #b8a5ff;outline-offset:2px}
+#new-answer-thread:disabled{opacity:.45;cursor:default}
+/* Keep live captions and multiline input from consuming the entire short panel. */
+@media (max-height:420px){
+  #composer{margin-top:8px;padding-top:8px;padding-bottom:8px;gap:6px}
+  #input-area{min-height:22px}
+  #answer-feed{min-height:32px}
+  .interim-transcript{max-height:28px;padding:3px 8px}
+  #latest-answer{bottom:0;padding:2px 8px;font-size:10px}
+}

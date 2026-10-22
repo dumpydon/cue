@@ -55,6 +55,10 @@ Mode files support PDF, DOCX, TXT, and Markdown (5 MB each, up to 10 per mode). 
 
 The overlay can be parked beyond the left, right, or bottom screen edge, keeping about 20% visible (at least 100 points across and 80 points vertically) so the exposed background can pull it back. Bottom corners also work. These limits follow the physical display edges even when the Dock reserves space. Its size stays fixed during dragging, and parked positions survive release, resizing, and relaunch. Opening Settings or Sessions brings the window fully into view.
 
+During a live session, the compact **You** microphone waveform and **Call** system-audio bars show which input is receiving sound. They follow actual audio levels, settle during silence, and show muted or unavailable sources independently. Their header shares the existing transcription status area, keeping answers visible in a small overlay. Hover either icon for its state. These meters do not enable capture or make extra provider requests; meeting audio still needs its existing opt-in and permissions. See [live audio inputs](docs/audio-activity.md).
+
+Typed follow-ups retain a bounded, memory-only answer thread. **New thread** clears generated answers while keeping the live transcript. Spoken reply actions use the actual conversation, with provisional speech identified and the latest question prioritized. See [response context](docs/response-generation.md).
+
 ### Platform support
 
 |  | macOS | Windows 11 / 10 2004+ |

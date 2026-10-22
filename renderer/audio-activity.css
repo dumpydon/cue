@@ -1,0 +1,20 @@
+/* Small, source-specific input meters. No idle animation or glow. */
+#panel { container-type: inline-size; }
+#audio-activity { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.audio-source { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; color: #b9b0c0; font-size: 10px; font-weight: 500; }
+.audio-source-icon { position: relative; display: inline-flex; flex: none; color: #c5addb; }
+.audio-source[data-audio-channel="them"] .audio-source-icon { color: #9bbbd1; }
+.audio-bars { display: flex; align-items: center; justify-content: center; gap: 2px; width: 23px; height: 16px; margin-left: 2px; color: #c5addb; }
+.audio-source[data-audio-channel="them"] .audio-bars { align-items: flex-end; padding-bottom: 1px; color: #9bbbd1; }
+.audio-bars i { display: block; width: 3px; height: 2px; flex: none; border-radius: 2px; background: currentColor; opacity: .4; transition: height 110ms ease-out, opacity 160ms ease; }
+.audio-source[data-state="active"] .audio-bars i { opacity: .95; }
+.audio-source:not([data-state="active"]):not([data-state="ready"]) .audio-bars i { transition: none; }
+.audio-source:is([data-state="off"], [data-state="starting"], [data-state="disabled"], [data-state="unavailable"], [data-state="muted"], [data-state="paused"]) { color: #a69dab; }
+.audio-source:is([data-state="off"], [data-state="starting"], [data-state="disabled"], [data-state="unavailable"], [data-state="muted"], [data-state="paused"]) :is(.audio-source-icon, .audio-bars) { color: #a69dab; }
+.audio-source:is([data-state="disabled"], [data-state="unavailable"], [data-state="muted"]) .audio-source-icon::after { content: ""; position: absolute; top: 5px; left: -1px; width: 14px; height: 1px; background: currentColor; box-shadow: 0 0 0 1px var(--panel-bg); transform: rotate(-45deg); }
+@media (prefers-reduced-motion: reduce) { .audio-bars i { transition: none; } }
+@container (max-width: 360px) {
+  .audio-source-label { display: none; }
+  #audio-activity { gap: 10px; }
+  #answer-thread-bar { gap: 8px; }
+}

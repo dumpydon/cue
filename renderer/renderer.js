@@ -5,6 +5,8 @@
   const $ = (s) => document.querySelector(s);
   const isWindows = cue.platform === 'win32';
   const isMac = cue.platform === 'darwin';
+  let captureActive = false;
+  const audioActivity = window.CueAudioActivity.install({ element: $('#audio-activity'), icon });
   const shortcutContext = window.CueShortcutContext.install({ cue });
   window.CueAnswerFormat.installCopy({ document, copyText: text => cue.copyAnswerText(text),
     onError: message => showStatus(message) });
@@ -151,7 +153,18 @@
     updateLatestAnswer();
   }
 
-  function clearMessages() { clearTimeout(answerRenderTimer); answerRenderTimer = null; messages.innerHTML = ''; aiEl = null; caretEl = null; latestAnswer.hidden = true; }
+  function clearMessages() { clearTimeout(answerRenderTimer); answerRenderTimer = null; messages.innerHTML = ''; aiEl = null; caretEl = null; latestAnswer.hidden = true; responseCount = 0; }
+
+  $('#new-answer-thread').addEventListener('click', async () => {
+    if (busy) return;
+    try {
+      const result = await cue.resetAnswerThread();
+      if (!result.ok) { showToast(result.message, 3500); return; }
+      input.focus();
+      showToast('New answer thread. Your live transcript is kept.', 2600);
+    } catch { showToast('Could not start a new thread. Try again.', 3500); }
+  });
+  cue.on('answer-thread:cleared', () => clearMessages());
 
   function addUserBubble(text) {
     const b = document.createElement('div');
@@ -193,10 +206,11 @@
   function setBusy(v) {
     busy = v;
     $('#send-btn').classList.toggle('busy', v);
+    $('#new-answer-thread').disabled = v;
     clearTimeout(busyFailsafe);
     // Failsafe: main has a 25s stream watchdog that always sends llm:done/llm:error, but if a
     // terminal event is ever lost the whole UI stays frozen — self-clear after a generous window.
-    if (v) busyFailsafe = setTimeout(() => { busy = false; $('#send-btn').classList.toggle('busy', false); }, 40000);
+    if (v) busyFailsafe = setTimeout(() => setBusy(false), 40000);
   }
 
   // ---- toast helper ------------------------------------------------------
@@ -722,9 +736,9 @@
   // the "you" channel at once — every slice of speech arrives twice, which the
   // transcriber can't make sense of — and the orphaned one keeps the mic hot.
   let micGen = 0;
-  function attachAudioWorklet(node, sendPCM) {
+  function attachAudioWorklet(node, channel, sendPCM) {
     node.port.onmessage = ({ data }) => {
-      if (data instanceof ArrayBuffer) sendPCM(data);
+      if (data instanceof ArrayBuffer) { audioActivity.pushPCM(channel, data); sendPCM(data); }
       else if (data?.type === 'flushed') node._flushResolve?.();
     };
   }
@@ -741,6 +755,7 @@
   async function startMic() {
     if (micStream) return;
     const gen = ++micGen;
+    audioActivity.setSource('you', 'starting');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -766,6 +781,7 @@
       if (!track) {
         micStream.getTracks().forEach((t) => t.stop());
         micStream = null;
+        audioActivity.setSource('you', 'unavailable');
         showStatus('No microphone audio track was available. Check Windows Sound settings for a working default input device, then try again.');
         return;
       }
@@ -780,7 +796,7 @@
         if (gen !== micGen) return;
         const source = audioCtx.createMediaStreamSource(micStream);
         micWorklet = new AudioWorkletNode(audioCtx, 'cue-audio-processor');
-        attachAudioWorklet(micWorklet, data => cue.micPcm(data));
+        attachAudioWorklet(micWorklet, 'you', data => cue.micPcm(data));
         source.connect(micWorklet);
         const sink = audioCtx.createGain(); sink.gain.value = 0;
         micWorklet.connect(sink); sink.connect(audioCtx.destination); micWorklet._sink = sink;
@@ -797,12 +813,15 @@
           const f = e.inputBuffer.getChannelData(0);
           const out = new Int16Array(f.length);
           for (let i = 0; i < f.length; i++) { const s = Math.max(-1, Math.min(1, f[i])); out[i] = s < 0 ? s * 0x8000 : s * 0x7fff; }
+          audioActivity.pushPCM('you', out.buffer);
           cue.micPcm(out.buffer);
         };
         micWorklet = { _legacy: true, proc: micProc, node: micNode, sink };
       }
+      audioActivity.connect('you', track, audioCtx);
     } catch (err) {
       if (gen !== micGen) return;
+      stopMic();
       const message = err && err.message ? err.message : String(err);
       const name = err && err.name;
       cue.log('mic error: ' + name + ' — ' + message);
@@ -825,6 +844,7 @@
   }
   function stopMic() {
     micGen++; // invalidate any startMic() still waiting on getUserMedia
+    audioActivity.setSource('you', 'unavailable');
     if (micWorklet) {
       if (micWorklet._legacy) {
         micWorklet.proc.disconnect(); micWorklet.proc.onaudioprocess = null;
@@ -852,17 +872,20 @@
     // that session puts the OS screen-recording indicator on the menu bar for the whole
     // call. Default to staying invisible; the user opts in in Settings > Audio.
     if (isMac && !(settings && settings.meetingAudio)) {
+      audioActivity.setSource('them', 'disabled');
       cue.log('system audio: meeting audio is off on macOS -- no display-capture session opened');
       showStatus('Meeting audio is off, so cue stays invisible. macOS shows a screen-recording indicator whenever an app captures system audio; turn Meeting audio on in Settings \u203a Audio if you want the other side transcribed.');
       return;
     }
     if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
+      audioActivity.setSource('them', 'unavailable');
       cue.log('system audio unavailable: getDisplayMedia not supported');
       showStatus('Meeting audio capture is not available on this device build.');
       return;
     }
     sysStarting = true;
     const gen = ++sysGen;
+    audioActivity.setSource('them', 'starting');
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
       if (gen !== sysGen) { stream.getTracks().forEach(track => track.stop()); return; }
@@ -870,6 +893,7 @@
       // capture session. Only its audio track enters the transcription graph.
       const tracks = stream.getAudioTracks();
       if (!tracks.length) {
+        audioActivity.setSource('them', 'unavailable');
         cue.log('system audio: no loopback track on this platform');
         stream.getTracks().forEach((t) => t.stop());
         showStatus(cue.platform === 'win32'
@@ -888,7 +912,7 @@
         if (gen !== sysGen) return;
         const source = sysCtx.createMediaStreamSource(new MediaStream(tracks));
         sysWorklet = new AudioWorkletNode(sysCtx, 'cue-audio-processor');
-        attachAudioWorklet(sysWorklet, data => cue.systemPcm(data));
+        attachAudioWorklet(sysWorklet, 'them', data => cue.systemPcm(data));
         source.connect(sysWorklet);
         const sink = sysCtx.createGain(); sink.gain.value = 0;
         sysWorklet.connect(sink); sink.connect(sysCtx.destination); sysWorklet._sink = sink;
@@ -905,12 +929,15 @@
           const f = e.inputBuffer.getChannelData(0);
           const out = new Int16Array(f.length);
           for (let i = 0; i < f.length; i++) { const s = Math.max(-1, Math.min(1, f[i])); out[i] = s < 0 ? s * 0x8000 : s * 0x7fff; }
+          audioActivity.pushPCM('them', out.buffer);
           cue.systemPcm(out.buffer);
         };
         sysWorklet = { _legacy: true, proc: sysProc, node: sysNode, sink };
       }
+      audioActivity.connect('them', tracks[0], sysCtx);
     } catch (err) {
       if (gen !== sysGen) return;
+      stopSystemAudio();
       const message = err && err.message ? err.message : String(err);
       cue.log('system audio error: ' + message);
       showStatus('Meeting audio could not be started. Grant screen/audio access to cue and try again.');
@@ -920,6 +947,7 @@
   }
   function stopSystemAudio() {
     sysGen++; sysStarting = false;
+    audioActivity.setSource('them', 'unavailable');
     if (sysWorklet) {
       if (sysWorklet._legacy) {
         sysWorklet.proc.disconnect(); sysWorklet.proc.onaudioprocess = null;
@@ -938,6 +966,8 @@
   // ---- STT / VAD status helpers ------------------------------------------
   // Live dot states: 'off' | 'idle' | 'speaking' | 'transcribing'
   function setLiveDotState(dotState) {
+    // Final transcripts/VAD events can arrive after capture has stopped.
+    if (!captureActive) dotState = 'off';
     const dot = document.getElementById('live-dot');
     if (!dot) return;
     dot.classList.remove('off', 'idle', 'speaking', 'transcribing');
@@ -1134,6 +1164,8 @@
 
   // ---- events from main --------------------------------------------------
   cue.on('capture:state', ({ active, streaming, mode }) => {
+    captureActive = !!active;
+    audioActivity.setSessionActive(active);
     setLiveDotState(active ? 'idle' : 'off');
     setSessionButton(active);
     // FIX #4: Add .listening class to composer when capture is active
@@ -2153,7 +2185,9 @@
 
     updatePermissionState(await cue.permissionsCheck());
     const st = await cue.captureState();
-    $('#live-dot').classList.toggle('off', !st.active);
+    captureActive = !!st.active;
+    audioActivity.setSessionActive(st.active);
+    setLiveDotState(st.active ? 'idle' : 'off');
     setSessionButton(st.active);
     if (!settings.onboarded) showOnboard();
   })();
