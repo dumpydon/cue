@@ -4,6 +4,7 @@ import { setupProductExamples } from './ui-demo.js';
 import { setupStoryWall } from './story-wall.js';
 import { setupDesktopDemo } from './desktop-demo.js';
 import { setupParticleBackground } from './particle-background.js';
+import { setupPricing } from './pricing.js';
 const one = (selector, root = document) => root.querySelector(selector);
 const all = (selector, root = document) => [...root.querySelectorAll(selector)];
 const motion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -12,6 +13,7 @@ const refreshDesktop = setupDesktopDemo();
 setupProductExamples();
 setupStoryWall();
 setupParticleBackground();
+setupPricing();
 
 const nav = one('.navtoggle'), navMenu = one('#navmenu');
 function navClose() { navMenu?.classList.remove('on'); nav?.setAttribute('aria-expanded', 'false'); }

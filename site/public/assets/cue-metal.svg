@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="8 8 248 256" fill="none">
+  <title>Cue in polished silver</title>
+  <defs>
+    <mask id="stud-gaps" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256"><rect width="256" height="256" fill="#fff"/><g fill="#000"><circle cx="128" cy="25" r="15"/><circle cx="231" cy="128" r="15"/><circle cx="128" cy="231" r="15"/><circle cx="25" cy="128" r="15"/></g></mask>
+    <g id="shape" fill-rule="evenodd">
+      <path d="M237 128a109 109 0 1 0-218 0 109 109 0 1 0 218 0ZM225 128a97 97 0 1 0-194 0 97 97 0 1 0 194 0Z" mask="url(#stud-gaps)"/>
+      <path d="M216.5 128a88.5 88.5 0 1 0-177 0 88.5 88.5 0 1 0 177 0ZM211.5 128a83.5 83.5 0 1 0-167 0 83.5 83.5 0 1 0 167 0Z"/>
+      <path d="M75 75A74.953 74.953 0 0 1 181 75L146 128 181 181A74.953 74.953 0 0 1 75 181L110 128Z"/>
+      <circle cx="128" cy="25" r="9"/><circle cx="231" cy="128" r="9"/><circle cx="128" cy="231" r="9"/><circle cx="25" cy="128" r="9"/>
+    </g>
+    <!-- Bright silver sidewalls with narrow dark reflections, like polished chrome. -->
+    <linearGradient id="edge" x1="12" y1="32" x2="235" y2="208" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e1e6eb"/><stop offset=".07" stop-color="#a0aab3"/>
+      <stop offset=".12" stop-color="#fff"/><stop offset=".18" stop-color="#f5f8fa"/>
+      <stop offset=".25" stop-color="#aeb9c2"/><stop offset=".31" stop-color="#f8fbfd"/>
+      <stop offset=".37" stop-color="#fff"/><stop offset=".43" stop-color="#b7c1ca"/>
+      <stop offset=".465" stop-color="#7f8c98"/><stop offset=".49" stop-color="#f4f9fc"/>
+      <stop offset=".56" stop-color="#fff"/><stop offset=".62" stop-color="#b7c2cc"/>
+      <stop offset=".69" stop-color="#eaf1f6"/><stop offset=".75" stop-color="#fff"/>
+      <stop offset=".8" stop-color="#98a7b3"/><stop offset=".845" stop-color="#fcfeff"/>
+      <stop offset=".92" stop-color="#c8d2db"/><stop offset="1" stop-color="#f0f5f8"/>
+    </linearGradient>
+    <linearGradient id="face" x1="65" y1="15" x2="181" y2="247" gradientUnits="userSpaceOnUse"><stop stop-color="#fff"/><stop offset=".22" stop-color="#f6f9fb"/><stop offset=".42" stop-color="#d9e1e8"/><stop offset=".5" stop-color="#fdfefe"/><stop offset=".73" stop-color="#fff"/><stop offset="1" stop-color="#d0dae3"/></linearGradient>
+    <linearGradient id="rim" x1="22" y1="16" x2="236" y2="238" gradientUnits="userSpaceOnUse"><stop stop-color="#fff"/><stop offset=".34" stop-color="#f9fdff"/><stop offset=".48" stop-color="#a7b5c0"/><stop offset=".55" stop-color="#fff"/><stop offset=".75" stop-color="#b8c5ce"/><stop offset="1" stop-color="#edf5fa"/></linearGradient>
+    <clipPath id="lit-rim"><path d="M0 0H256L0 256Z"/></clipPath>
+    <filter id="shadow" x="-20%" y="-20%" width="150%" height="160%"><feDropShadow dx="1" dy="5" stdDeviation="2.6" flood-color="#152033" flood-opacity=".22"/></filter>
+    <filter id="bevel" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation=".9" result="bump"/>
+      <feSpecularLighting in="bump" surfaceScale="3.1" specularConstant=".8" specularExponent="22" lighting-color="#fff" result="shine"><fePointLight x="-80" y="-160" z="240"/></feSpecularLighting>
+      <feComposite in="shine" in2="SourceAlpha" operator="in" result="edge-shine"/>
+      <feComposite in="SourceGraphic" in2="edge-shine" operator="arithmetic" k1="0" k2="1" k3=".5" k4="0"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <!-- Fine depth steps keep the silver sidewalls smooth when enlarged. -->
+    <use href="#shape" transform="translate(3.0000 10.5000)" fill="url(#edge)" stroke="#a4b1bc" stroke-width=".75"/>
+    <use href="#shape" transform="translate(2.9531 10.3359)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.9062 10.1719)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.8594 10.0078)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.8125 9.8438)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.7656 9.6797)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.7188 9.5156)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.6719 9.3516)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.6250 9.1875)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.5781 9.0234)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.5312 8.8594)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.4844 8.6953)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.4375 8.5312)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.3906 8.3672)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.3438 8.2031)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.2969 8.0391)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.2500 7.8750)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.2031 7.7109)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.1562 7.5469)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.1094 7.3828)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.0625 7.2188)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(2.0156 7.0547)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.9688 6.8906)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.9219 6.7266)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.8750 6.5625)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.8281 6.3984)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.7812 6.2344)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.7344 6.0703)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.6875 5.9062)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.6406 5.7422)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.5938 5.5781)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.5469 5.4141)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.5000 5.2500)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.4531 5.0859)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.4062 4.9219)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.3594 4.7578)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.3125 4.5938)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.2656 4.4297)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.2188 4.2656)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.1719 4.1016)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.1250 3.9375)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.0781 3.7734)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(1.0312 3.6094)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.9844 3.4453)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.9375 3.2812)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.8906 3.1172)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.8438 2.9531)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.7969 2.7891)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.7500 2.6250)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.7031 2.4609)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.6562 2.2969)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.6094 2.1328)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.5625 1.9688)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.5156 1.8047)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.4688 1.6406)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.4219 1.4766)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.3750 1.3125)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.3281 1.1484)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.2812 0.9844)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.2344 0.8203)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.1875 0.6562)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.1406 0.4922)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.0938 0.3281)" fill="url(#edge)"/>
+    <use href="#shape" transform="translate(0.0469 0.1641)" fill="url(#edge)"/>
+    <use href="#shape" fill="url(#face)" stroke="url(#rim)" stroke-width="1.15" filter="url(#bevel)"/>
+    <use href="#shape" transform="translate(-.2 -.35)" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width=".65" clip-path="url(#lit-rim)"/>
+  </g>
+</svg>

@@ -49,3 +49,8 @@ SOFTWARE.
 ## Particle background
 
 - `public/js/vendor/raisedhand-grain-engine.js`: Raised Hand's public grain engine, adapted under the permission stated by the user. Source: <https://raisedhand.ai/landing/grain-engine.js>, retrieved 21 October 2026. Geometry, particle paths, and timing are retained. Cue-specific compositing and same-origin worker changes are documented in `PARTICLE_BACKGROUND.md`.
+
+## Pricing cards
+
+- `public/js/vendor/raisedhand-sand-text.js`, the pricing card materials, and the radial SVG generator are adapted from Raised Hand's public pricing component under the user's stated permission. Source details and integration changes are recorded in `PRICING.md`.
+- `public/assets/cue-metal.svg` uses Cue's existing detailed vector mark with added silver materials and bevel lighting.

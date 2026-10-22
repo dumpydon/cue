@@ -20,6 +20,8 @@ export function setupParticleBackground() {
     ['.tour-feature>.film-section-title,.tour-feature>.lead', .86],
     ['.faq', .9],
     ['.story-wall', .84],
+    ['.cue-pricing-head,.cue-plan-switch-row,.cue-pricing-note', .9],
+    ['.cue-member', .94],
   ];
 
   function measure() {

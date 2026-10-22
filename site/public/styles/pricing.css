@@ -1,0 +1,92 @@
+/* Card geometry, radial materials and glare adapted from Raised Hand's pricing component. */
+.cue-pricing{position:relative;padding:110px 0 45px;scroll-margin-top:85px}
+.cue-pricing>.wrap{max-width:1060px}
+.cue-pricing-head{text-align:center;max-width:940px;margin:auto}
+.cue-pricing-saving{display:flex;justify-content:center;align-items:center;gap:7px;flex-wrap:wrap;margin:0 0 23px;font-size:14px;line-height:1.5;color:#a4afbf}
+.cue-pricing-saving>svg{width:18px;height:18px;fill:none;stroke:#9dbcff;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.cue-pricing-saving strong{font-weight:550;color:#9dbcff}
+.cue-pricing-head h2{font-family:var(--font-site);font-size:clamp(32px,4.6vw,52px);font-weight:500;letter-spacing:-.035em;line-height:1.12;margin:0;color:#f3f6fb;text-wrap:balance}
+.cue-pricing-head h2 em{font-style:normal;color:#9dbcff}
+.cue-pricing-intro{color:#a4afbf;font-size:16px;line-height:1.65;margin:18px auto 0;max-width:58ch}
+.cue-plan-switch-row{display:flex;justify-content:center;align-items:center;gap:14px;margin:30px auto 0;min-height:32px}
+.cue-plan-label{border:0;background:none;padding:5px 0;color:#8e98a8;font:450 15px/1.4 var(--font-site);cursor:pointer}
+.cue-plan-label[aria-pressed=true]{color:#f4f7fc}
+.cue-plan-label:focus-visible{outline:2px solid #9dbcff;outline-offset:4px;border-radius:4px}
+.cue-plan-label:disabled{cursor:default}
+.cue-billing-switch{position:relative;display:inline-flex;align-items:center;flex:none;width:46px;height:27px;cursor:pointer}
+.cue-billing-switch input{position:absolute;inset:0;width:100%;height:100%;opacity:0;z-index:1;margin:0;cursor:pointer}
+.cue-billing-switch>span{display:block;width:46px;height:27px;border:1px solid #ffffff26;border-radius:999px;background:#252b37;box-shadow:inset 0 1px 3px #0003;transition:background .22s}
+.cue-billing-switch>span::after{content:"";display:block;width:21px;height:21px;margin:2px;border-radius:50%;background:#fff;box-shadow:0 1px 4px #0005;transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+.cue-billing-switch input:checked+span{background:#3159a7;border-color:#8bb8ff55;box-shadow:0 0 18px #3080ff20}
+.cue-billing-switch input:checked+span::after{transform:translateX(19px)}
+.cue-billing-switch input:focus-visible+span{outline:2px solid #9dbcff;outline-offset:4px}
+.cue-plan-saving{border:1px solid #9dbcff35;border-radius:999px;background:#9dbcff0c;color:#a9c6ff;font-size:12px;white-space:nowrap;padding:4px 9px}
+.cue-members{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto auto auto;gap:0 14px;width:100%;max-width:940px;margin:26px auto 0;text-align:left}
+.cue-member{display:grid;grid-row:span 3;grid-template-rows:subgrid;border-radius:22px;overflow:hidden;color:#fff}
+.cue-member-light{background:#ffffff09;box-shadow:inset 0 0 0 1px #ffffff17}
+.cue-member-dark{background:#05070d;box-shadow:inset 0 0 0 1px #9dbcff24}
+.cue-member-head{padding:28px 30px 0;position:relative;z-index:2}
+.cue-member-name{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.cue-member-name h3{margin:0;font:450 30px/1.15 var(--font-site);letter-spacing:-.7px;color:inherit}
+.cue-member-pill{padding:4px 10px;border-radius:999px;color:#9dbcff;background:#9dbcff24;font-size:12px;font-weight:550;white-space:nowrap}
+.cue-member-sub{font-size:15px;line-height:1.45;color:#ffffffa3;margin:6px 0 0}
+.cue-member-sub-first{margin-top:0}
+.cue-member-price{display:flex;align-items:baseline;gap:8px;margin-top:24px;white-space:nowrap}
+.cue-member-price b{font-size:44px;font-weight:600;line-height:1;letter-spacing:-1.3px;font-variant-numeric:tabular-nums;color:#fff}
+.cue-member-price s{font-size:17px;font-weight:450;color:#fff6;text-decoration-thickness:1.5px}
+.cue-member-price>span{font-size:14px;color:#ffffffa3}
+.cue-member-billing{margin:7px 0 0;font-size:13.5px;line-height:1.5;color:#ffffffa3;min-height:21px}
+.cue-demo-title{font:600 40px/1.12 var(--font-site);letter-spacing:-1.3px;color:#fff;margin:27px 0 0}
+.cue-sand{--sand-accent:#9dbcff;position:relative}
+.cue-sand-words{transition:opacity 160ms}
+.cue-sand-words[data-moving]{opacity:0}
+.cue-sand-base{vertical-align:baseline;width:0;height:0;display:inline-block}
+.cue-sand-canvas{position:absolute;z-index:1;pointer-events:none;opacity:0;transition:opacity 160ms}
+.cue-member-art{position:relative;height:262px;margin-top:8px;overflow:hidden;perspective:1100px;perspective-origin:52% 0;-webkit-mask-image:linear-gradient(62deg,#0000 4%,#000 40%);mask-image:linear-gradient(62deg,#0000 4%,#000 40%)}
+.cue-member-light .cue-member-art{background:radial-gradient(50% 70% at 54% 78%,#5cc8ff33,#5cc8ff00 72%)}
+.cue-member-dark .cue-member-art{background:radial-gradient(50% 70% at 54% 78%,#6f8cff3d,#6f8cff00 72%)}
+.cue-metal-card{position:absolute;top:68%;left:51%;width:300px;height:300px;transform-style:preserve-3d;transform:translate(-50%,-50%) rotateX(36deg) rotate(42deg);transition:transform .9s cubic-bezier(.2,.8,.2,1)}
+.cue-member:is(:hover,:focus-within,.is-active) .cue-metal-card{transform:translate(-50%,-53%) rotateX(30deg) rotate(37deg)}
+.cue-metal-face,.cue-metal-edge{position:absolute;inset:0;border-radius:42px}
+.cue-metal-edge{transform:translateZ(-8px)}
+.cue-metal-face{overflow:hidden}
+.cue-metal-rays{position:absolute;inset:0;display:block;width:100%;height:100%}
+.cue-metal-face::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,#fff0 38%,#ffffff80 50%,#fff0 62%) 100% 0/260% 100%;transition:background-position 1.1s cubic-bezier(.2,.8,.2,1)}
+.cue-member:is(:hover,:focus-within,.is-active) .cue-metal-face::after{background-position:0 0}
+.cue-metal-logo{position:absolute;top:50%;left:50%;display:grid;place-items:center;width:104px;height:104px;transform:translate(-50%,-50%) translateZ(18px) rotate(-42deg)}
+.cue-metal-logo img{display:block;width:96px;height:96px}
+.cue-metal-card[data-tone=cool] .cue-metal-face{background:linear-gradient(160deg,#fff 0%,#f1f9ff 52%,#dcefff 100%);box-shadow:inset 0 0 0 1.5px #fffffff2,0 0 0 1px #2a46901a,0 40px 80px #38a6f238}
+.cue-metal-card[data-tone=cool] .cue-metal-edge{background:linear-gradient(135deg,#d7e9f8,#9cc0e6);box-shadow:0 30px 60px #2a46902e}
+.cue-metal-card[data-tone=deep] .cue-metal-face{background:radial-gradient(circle,#16203d 0%,#0a0d18 62%,#07080f 100%);box-shadow:inset 0 0 0 1px #ffffff1f,0 40px 90px #6f8cff42}
+.cue-metal-card[data-tone=deep] .cue-metal-face::after{background-image:linear-gradient(115deg,#fff0 38%,#c8d8ff38 50%,#fff0 62%)}
+.cue-metal-card[data-tone=deep] .cue-metal-edge{background:linear-gradient(135deg,#252d42,#101620);box-shadow:0 30px 60px #0006}
+.cue-metal-card[data-tone=cool] .cue-metal-logo img{filter:drop-shadow(0 1px 1px #263c5033) drop-shadow(0 6px 8px #09142645)}
+.cue-metal-card[data-tone=deep] .cue-metal-logo img{filter:drop-shadow(0 .75px .5px #dce6f440) drop-shadow(0 7px 9px #0006)}
+.cue-member-want{display:flex;flex-direction:column;padding:22px 30px 30px;position:relative;z-index:2}
+.cue-member-light .cue-member-want{background:#ffffff05;box-shadow:inset 0 1px #ffffff0f}
+.cue-member-dark .cue-member-want{background:#07090f;box-shadow:inset 0 1px #ffffff0f}
+.cue-member-want>p{margin:0 0 16px;font-size:14px;font-weight:550;color:#fff}
+.cue-member-want ul{display:grid;gap:14px;list-style:none;margin:0 0 27px;padding:0}
+.cue-member-want li{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;line-height:1.5;color:#fffc}
+.cue-member-want li>svg{flex:none;width:17px;height:17px;margin-top:2px;fill:none;stroke:#ffffff8f;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.cue-member-want li small{display:block;color:#8f9bad;font-size:11.5px;margin-top:2px}
+.cue-member-cta{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:52px;margin-top:auto;padding:12px 18px;border:0;border-radius:10px;background:#fff;color:#141416;font:550 15px/1.5 var(--font-site);letter-spacing:-.01em;text-decoration:none;cursor:pointer;transition:background .15s,transform .1s;box-shadow:0 8px 22px -10px #a0b9f073}
+.cue-member-cta:hover{background:#eceff6}
+.cue-member-cta:active{transform:scale(.98)}
+.cue-member-cta:focus-visible{outline:2px solid #9dbcff;outline-offset:4px}
+.cue-member-cta[hidden]{display:none}
+.cue-pricing-note{text-align:center;margin:24px auto 0;color:#8f9bad;font-size:11.5px;line-height:1.75}
+.cue-pro-dialog{position:fixed;inset:0;margin:auto;width:min(460px,calc(100% - 36px));max-height:calc(100dvh - 36px);overflow:auto;padding:36px;border:1px solid #90b4ef32;border-radius:22px;background:linear-gradient(145deg,#152235,#090f19 75%);color:#f4f7fc;box-shadow:0 30px 120px #000b;text-align:center}
+.cue-pro-dialog::backdrop{background:#03070ec9;backdrop-filter:blur(8px)}
+.cue-pro-close{position:absolute;top:12px;right:13px;width:32px;height:32px;border:1px solid #ffffff1c;border-radius:50%;background:#ffffff08;color:#c3cede;font:22px/1 var(--font-site);cursor:pointer}
+.cue-pro-close:focus-visible{outline:2px solid #9dbcff;outline-offset:3px}
+.cue-pro-dialog>img{display:block;margin:0 auto 14px}
+.cue-pro-kicker{color:#9dbcff;font-size:13px;font-weight:500}
+.cue-pro-dialog h2{font:500 28px/1.2 var(--font-site);letter-spacing:-.03em;margin:9px 0 20px}
+.cue-pro-dialog .cue-pro-charge{font-size:30px;font-weight:600;color:#fff;margin:0}
+.cue-pro-dialog p{font-size:13px;line-height:1.65;color:#a4b2c7;margin-top:16px}
+.cue-pro-dialog .cue-pro-billing{margin-top:1px;font-size:12px}
+.cue-pro-dialog .cue-member-cta{margin-top:26px}
+@supports not (grid-template-rows:subgrid){.cue-member{display:flex;flex-direction:column}.cue-member-head{min-height:185px}.cue-member-want{flex:1}}
+@media(max-width:760px){.cue-pricing{padding-top:80px}.cue-pricing-saving{font-size:12px;gap:6px}.cue-pricing-intro{font-size:14px}.cue-plan-switch-row{gap:11px}.cue-plan-label{font-size:14px}.cue-plan-saving{font-size:10.5px;padding:4px 7px}.cue-members{grid-template-columns:1fr;grid-template-rows:none;gap:16px;max-width:490px;margin-top:24px}.cue-member{display:flex;flex-direction:column;grid-row:auto;border-radius:18px}.cue-member-head{padding:24px 24px 0}.cue-member-name h3{font-size:28px}.cue-member-price b{font-size:42px}.cue-demo-title{font-size:37px}.cue-member-art{height:238px}.cue-metal-card{width:280px;height:280px;top:66%}.cue-member-want{padding:22px 24px 25px}.cue-pricing-note{max-width:44ch;font-size:11px}.cue-pro-dialog{padding:30px 24px}}
+@media(prefers-reduced-motion:reduce){.cue-metal-card,.cue-metal-face::after,.cue-billing-switch>span,.cue-billing-switch>span::after,.cue-member-cta,.cue-sand-words,.cue-sand-canvas{transition:none}.cue-member:is(:hover,:focus-within,.is-active) .cue-metal-card{transform:translate(-50%,-50%) rotateX(36deg) rotate(42deg)}.cue-member:is(:hover,:focus-within,.is-active) .cue-metal-face::after{background-position:100% 0}.cue-member-cta:active{transform:none}}
