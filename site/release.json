@@ -12,90 +12,16 @@
       "bytes": 130612344,
       "sha256": "874392a350b78d51ccf03c9ca40e7aed887c381c585564eb0d7a207306eda220",
       "url": "/get/mac/arm64",
-      "host": "worker-preview",
-      "releaseUrl": "https://github.com/dumpydon/cue/releases/download/v0.4.15-preview.1/cue-0.4.15-preview-mac-arm64.zip",
-      "parts": [
-        {
-          "path": "/downloads/parts/0.4.15/arm64/part-001.bin",
-          "bytes": 20971520,
-          "sha256": "d96c8f50f65049e48cbadaa46f4507712a40ffb774f47ca7b41e66827dd9a717"
-        },
-        {
-          "path": "/downloads/parts/0.4.15/arm64/part-002.bin",
-          "bytes": 20971520,
-          "sha256": "5eafe7b09d0bc12a97d41ea595c0e979a9e8cea32cfaf868e7e3cd94d78491ed"
-        },
-        {
-          "path": "/downloads/parts/0.4.15/arm64/part-003.bin",
-          "bytes": 20971520,
-          "sha256": "0ea9c27a8f3cd6b764bf9591dae8f177879a6e9b55cac95ef22ac1c5c4985918"
-        },
-        {
-          "path": "/downloads/parts/0.4.15/arm64/part-004.bin",
-          "bytes": 20971520,
-          "sha256": "5e7d102c174f8bbe38345609e9952d7eb1f743f3539a789675e8c9d2e93a46a1"
-        },
-        {
-          "path": "/downloads/parts/0.4.15/arm64/part-005.bin",
-          "bytes": 20971520,
-          "sha256": "147d22ca26cac84b0b01c12f29ffed450368d33560a265c6b2a00f4e89d82d7d"
-        },
-        {
-          "path": "/downloads/parts/0.4.15/arm64/part-006.bin",
-          "bytes": 20971520,
-          "sha256": "e464744895e0fa67d84eb9dabfdb65407811f4f9a397ee96491d54741dcb77f2"
-        },
-        {
-          "path": "/downloads/parts/0.4.15/arm64/part-007.bin",
-          "bytes": 4783224,
-          "sha256": "147340066f7560f7facfa9ed2495cb2a320efb67763545b11d8b1da2c97e720a"
-        }
-      ]
+      "host": "github",
+      "releaseUrl": "https://github.com/dumpydon/cue/releases/download/v0.4.15-preview.1/cue-0.4.15-preview-mac-arm64.zip"
     },
     "x64": {
       "filename": "cue-0.4.15-preview-mac-x64.zip",
       "bytes": 137336872,
       "sha256": "07b31243c08ed57c25eff43d3653473fa8a73e8987d1861f8c0bf8128e66c0ec",
       "url": "/get/mac/x64",
-      "host": "worker-preview",
-      "releaseUrl": "https://github.com/dumpydon/cue/releases/download/v0.4.15-preview.1/cue-0.4.15-preview-mac-x64.zip",
-      "parts": [
-        {
-          "path": "/downloads/parts/0.4.15/x64/part-001.bin",
-          "bytes": 20971520,
-          "sha256": "25d0ed9ac85a981a52a10814b8662dfac703f90fff8ed97b2fdf1470ce3be370"
-        },
-        {
-          "path": "/downloads/parts/0.4.15/x64/part-002.bin",
-          "bytes": 20971520,
-          "sha256": "9bc0924097eec9af63850e9195899e459fa82cc8df037ded50663c8f74e7ae14"
-        },
-        {
-          "path": "/downloads/parts/0.4.15/x64/part-003.bin",
-          "bytes": 20971520,
-          "sha256": "b4cd5f76bbe91c23e3b10dc3973bd9a5fad80cecb556dc200659f4b77223b919"
-        },
-        {
-          "path": "/downloads/parts/0.4.15/x64/part-004.bin",
-          "bytes": 20971520,
-          "sha256": "efb4071d66b564e597c55c00c02f9cac3c7e8d5c4a89aa13365b550bfb9d752a"
-        },
-        {
-          "path": "/downloads/parts/0.4.15/x64/part-005.bin",
-          "bytes": 20971520,
-          "sha256": "47ff10cc0bd1720f9ec16253d47945ef137f97f1746543a761bf12ea566f2072"
-        },
-        {
-          "path": "/downloads/parts/0.4.15/x64/part-006.bin",
-          "bytes": 20971520,
-          "sha256": "bbdf7ab70a465e03995fd6b1975232eb269dd504bec8550f3e0be0b790300435"
-        },
-        {
-          "path": "/downloads/parts/0.4.15/x64/part-007.bin",
-          "bytes": 11507752,
-          "sha256": "9d8b09d0749d2b9030164d3f0fad16ea93e730cd91abe9aaf8bc021f75326e9d"
-        }
-      ]
+      "host": "github",
+      "releaseUrl": "https://github.com/dumpydon/cue/releases/download/v0.4.15-preview.1/cue-0.4.15-preview-mac-x64.zip"
     }
   },
   "notarized": false,
