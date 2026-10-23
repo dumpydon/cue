@@ -1,7 +1,8 @@
 /* Adapted from https://raisedhand.ai/landing/grain-engine.js (retrieved 2026-10-21).
  * Original SHA256: 1028d1c1ac5ecb3aaf732a3fb6f56786a76f027128c4aba9cd9075f0b0099d67
- * Cue changes: optional transparent compositing and a same-origin module worker.
- * Dune geometry, camera, random seeds, particle shaders, spiral paths and timing are unchanged.
+ * Cue changes: portable premultiplied-alpha compositing, explicit HDR sampler
+ * precision, and a same-origin module worker. Dune geometry, camera, random
+ * seeds, particle paths, density and timing are unchanged.
  * See site/PARTICLE_BACKGROUND.md for provenance and integration details.
  */
 /* ==========================================================================
@@ -1608,7 +1609,7 @@ void main(){ vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)
 
 const FS_DOWN = `#version 300 es
 precision highp float;
-uniform sampler2D u_src;
+uniform highp sampler2D u_src;
 uniform vec2 u_srcTexel;
 uniform vec2 u_dstRes;
 out vec4 o;
@@ -1622,7 +1623,7 @@ void main(){
 
 const FS_BLUR = `#version 300 es
 precision highp float;
-uniform sampler2D u_src;
+uniform highp sampler2D u_src;
 uniform vec2 u_dir;
 uniform vec2 u_res;
 out vec4 o;
@@ -1638,8 +1639,8 @@ void main(){
 
 const FS_COMP = `#version 300 es
 precision highp float;
-uniform sampler2D u_grain;
-uniform sampler2D u_bloom;
+uniform highp sampler2D u_grain;
+uniform highp sampler2D u_bloom;
 uniform vec2  u_res;
 uniform float u_aspect;
 uniform float u_time;
@@ -1655,7 +1656,7 @@ uniform vec2  u_hero;     // the card's size, CSS px
 uniform vec3  u_page;     // page mode (0/1), card corner radius, card bottom fade (CSS px)
 uniform vec3  u_pageBg;   // the page colour, linear
 uniform float u_transparent; // Cue: render only the original grains, over the existing website
-uniform sampler2D u_bake; // v5: the dune field's lit image (alpha: 0 sky, 0.1 far .. 1 near ground)
+uniform highp sampler2D u_bake; // v5: the dune field's lit image (alpha: 0 sky, 0.1 far .. 1 near ground)
 uniform vec4  u_body;     // v5: the dunes' bodies: how present, the horizon (scene y), seconds into a change (<0: none), +1 arriving / -1 leaving
 uniform vec4  u_hglow;    // v5: the glow low on the horizon behind the dunes: x, y (scene units), width, strength
 uniform vec4  u_tr;       // v5: the change's gust front and its settling (as the grains)
@@ -1725,7 +1726,10 @@ void main(){
   col += n * u_film * (0.55 + 0.45 * (1.0 - col.g)) * card;
   if (u_transparent > 0.5) {
     float a = clamp(max(col.r, max(col.g, col.b)), 0.0, 1.0);
-    o = vec4(col / max(a, 0.00001), a);
+    // Premultiplied canvas output: keep faint bloom faint on WebKit too.
+    // Normalizing RGB by alpha turns the haze into a bright sheet on iOS
+    // versions that composite premultipliedAlpha:false as premultiplied.
+    o = vec4(clamp(col, vec3(0.0), vec3(a)), a);
   } else {
     o = vec4(col, 1.0);
   }
@@ -2055,7 +2059,7 @@ export function createGrainScene(canvas, opts = {}) {
 
   /* ---------------- GL setup */
   function initGL() {
-    const gl = canvas.getContext('webgl2', { antialias: false, alpha: !!O.transparent, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
+    const gl = canvas.getContext('webgl2', { antialias: false, alpha: !!O.transparent, depth: false, stencil: false, premultipliedAlpha: !!O.transparent, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
     if (!gl) return false;
     S.gl = gl;
     S.float = !!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));

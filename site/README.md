@@ -106,6 +106,10 @@ controls and does not ask users to disable system security or reset permissions.
   This is an isolated local product-render harness, without browser accounts,
   user profiles, AI requests, or physical capture.
 - Run the desktop `npm test` when changing packaging or shared app files.
+- For particle changes, run `node_modules/.bin/electron site/scripts/particle-render-qa.cjs`
+  from the repository root with the local preview running. It checks retina touch
+  portrait/landscape, desktop, animation and scrolling, valid transparent pixels,
+  and HDR color preservation. Also check the result on an actual iPhone.
 - Verify the published HTML, MP4 range responses, and complete ZIP checksum
   after deployment. Keep the same local signing identity for local updates.
 
