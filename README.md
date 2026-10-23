@@ -223,13 +223,6 @@ Frequently used models rise in your local list. Deleting a suggestion does not c
 
 For a local OpenAI-compatible server, choose **Custom**. An Ollama server commonly uses `http://127.0.0.1:11434/v1`; enter an installed model ID. Other gateways use their own URL and model names. Custom chat does not automatically make that server your transcription provider.
 
-<details>
-<summary>About the optional upstream publik integration</summary>
-
-Some upstream builds can offer a publik account and billing connection. This developer preview does not bundle that service credential and uses your own provider keys. Building Cue without an explicitly configured publik token keeps that option unavailable. The integration is separate from Cue’s website pricing preview and from your selected provider’s API charges.
-
-</details>
-
 ## Privacy and screen sharing
 
 Cue has no required account or app telemetry. Settings, provider keys, background text, modes, and saved sessions live in local app storage. Local storage is not an encrypted vault; treat exported settings and backups as private.
@@ -279,7 +272,7 @@ For Zoom, choose **Settings → Share Screen → Advanced → Screen capture mod
 
 ## Build and contribute
 
-Cue uses Electron. `main.js` coordinates the app, capture, and requests; `renderer/` contains the interface; `src/` contains providers and supporting logic. The website lives separately in [`site/`](site/README.md), alongside the film source and download manifest.
+You can build Cue for your platform and run its checks locally:
 
 ```bash
 npm test                  # unit tests
@@ -297,7 +290,7 @@ npm run prepare:whisper
 npm run verify:whisper-runtime
 ```
 
-Windows and Linux use verified upstream binaries. macOS builds the pinned source with CMake and Xcode command-line tools. Mac packaging includes this runtime when `CUE_BUNDLE_WHISPER=1`; Windows and Linux include it by default unless explicitly disabled. Model weights are separate downloads.
+Windows and Linux use verified speech-runtime binaries. macOS builds the pinned source with CMake and Xcode command-line tools. Mac packaging includes this runtime when `CUE_BUNDLE_WHISPER=1`; Windows and Linux include it by default unless explicitly disabled. Model weights are separate downloads.
 
 <details>
 <summary>Mac signing, updates, and permission continuity</summary>
@@ -311,11 +304,7 @@ Do not replace a certificate-signed app with ad-hoc signing. Keep rollback build
 </details>
 
 <details>
-<summary>Audio, rendering, and regression checks</summary>
-
-The renderer captures microphone and system audio separately. AudioWorklets produce mono PCM for transcription and the local meters. A fallback covers older processing paths. Local transcription runs a whisper-server process on the loopback interface; both speaker channels share a bounded queue.
-
-Speech and optional screen context become input for your chosen chat model. Answers stream into the panel. The protection request uses native window flags, not a guarantee that every capture method will exclude the window.
+<summary>Regression checks</summary>
 
 Isolated Electron suites cover live audio, response context, formatting, modes, permissions, shortcuts, and window behavior. For example:
 
@@ -327,16 +316,12 @@ node_modules/.bin/electron scripts/smoke-answer-format.cjs
 
 These suites use temporary profiles and synthetic sources. They check behavior without using your microphone, meeting history, provider keys, or paid model accounts. They do not replace a real capture check on the final signed app.
 
-Brand artwork lives in `renderer/assets/`. Run `node scripts/build-icon.js` after changing the source SVGs. The [launch-film source](site/film-src/README.md) documents the existing footage, illustrated interfaces, soundtrack, and export process.
-
 </details>
 
 Issues and pull requests are welcome. Include your operating system, Cue version, affected action, and a safe reproduction. Remove API keys, personal transcripts, and private screenshots from reports. Keep settings, profiles, downloaded models, signing keys, and build archives out of commits.
 
-## Credits and license
+## License
 
-Cue builds on ideas from Cluely and Interview Coder, with inspiration from `pickle-com/glass` and `sohzm/cheating-daddy`.
-
-Local transcription uses [whisper.cpp](https://github.com/ggml-org/whisper.cpp), under the MIT License. Packaged runtimes include its license notice. Website media and third-party assets are documented in [asset notices](site/THIRD_PARTY_ASSETS.md).
+Local transcription uses [whisper.cpp](https://github.com/ggml-org/whisper.cpp), under the MIT License. Packaged runtimes include its license notice. Other third-party components retain their license notices.
 
 **[GPL-3.0-or-later](LICENSE).**
