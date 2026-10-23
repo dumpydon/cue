@@ -12,7 +12,7 @@ Get help with a question, follow a live discussion, or understand a coding probl
 
 [![Cue uses Smart assist and moves the answer window over a sample coding workspace](docs/media/cue-launch-preview.gif)](https://cue.dumpydon.workers.dev/#film)
 
-*An eight-second preview from our launch film. Click to watch the full 38-second video with sound and captions.*
+*A 21-second preview from our launch film. Click to watch the full 38-second video with sound and captions.*
 
 </div>
 

@@ -3,7 +3,7 @@
 These assets reuse Cue's existing launch film and isolated app screenshots.
 No personal screen, microphone, meeting, or credentials were recorded.
 
-- `cue-launch-preview.gif`: launch film, 14–22 seconds; Smart assist and window movement.
+- `cue-launch-preview.gif`: launch film, 5–26 seconds (21 seconds); opening Cue, incognito, Smart assist, window movement, and conversation context.
 - `cue-conversation-preview.gif`: launch film, 22–30.5 seconds; conversation context and a coding answer.
 - `cue-live-audio.png`: unchanged screenshot from `scripts/smoke-audio-context.cjs`,
   saved during the 0.4.15 release checks using synthetic microphone and loopback inputs.
@@ -19,7 +19,7 @@ the full film for playback with sound and captions.
 Recreate either GIF with FFmpeg; adjust `-ss` and `-t` to the range above:
 
 ```sh
-ffmpeg -ss 14 -t 8 -i site/public/media/cue-launch.mp4 \
+ffmpeg -ss 5 -t 21 -i site/public/media/cue-launch.mp4 \
   -filter_complex 'fps=12,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle' \
   -loop 0 docs/media/cue-launch-preview.gif
 ```
