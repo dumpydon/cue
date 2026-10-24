@@ -63,6 +63,7 @@ app.whenReady().then(async () => {
       }))`);
       const first = await frame(); await pause(180); const next = await frame();
       assert.equal(first.width, width); assert.equal(first.coarse, touch);
+      assert.equal(first.canvas[0], width * scale, name + ' retains native retina resolution');
       assert.equal(first.error, 0, name + ' has no WebGL errors');
       assert.equal(first.premultiplied, true, name + ' uses the portable browser compositing path');
       assert.equal(first.invalidPremultiplied, 0, name + ' never emits RGB brighter than alpha');

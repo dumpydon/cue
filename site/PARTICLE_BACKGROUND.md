@@ -20,7 +20,9 @@ Integration changes are limited to:
   as premultiplied. The original opaque sky and whole-frame film noise are omitted.
 - HDR texture samplers explicitly use high precision, preserving the small grain
   and glow values and values above 1 on mobile GPUs. Geometry, density, render
-  resolution, trajectories and animation speed are unchanged.
+  trajectories and animation speed are unchanged. Retina phones can render at
+  native 3x density instead of the previous forced 2x cap, within the existing
+  pixel budget and performance safeguards.
 - The original geometry builder runs in a same-origin module worker rather than
   a generated blob worker. The existing content security policy remains intact.
 - A page-layout adapter measures Cue's hero and content. Content masks protect
@@ -28,6 +30,9 @@ Integration changes are limited to:
 - Reduced-motion preferences freeze the first completed dune frame. The canvas
   stays hidden while the original geometry is being prepared. Devices without
   WebGL2 keep the existing page without this decorative layer.
+- The build gives scripts, styles, module imports and the particle worker the
+  same content revision. A renderer update changes the complete module graph's
+  URLs, avoiding a mixture of old and new shader/worker code after a reload.
 
 Application previews, the launch film, website palette, text, and controls are
 unchanged by this feature. All new files are confined to the website.
@@ -52,3 +57,15 @@ clipping or tinting. The compositing assertion fails against the old renderer.
 `CUE_SITE_QA_URL` selects a hosted preview. It uses no account, physical capture,
 provider requests, or user profile. Final iPhone validation uses the real browser
 as well; simulated dimensions do not replace that check.
+
+On macOS, a separate native WebKit suite checks the browser's final composited
+page as well as the WebGL buffer:
+
+```sh
+swift site/scripts/particle-webkit-qa.swift http://127.0.0.1:8793/
+```
+
+It uses a nonpersistent WKWebView with emulated 3x/coarse-pointer inputs, tests
+portrait, scrolling and landscape, and saves snapshots and a report under
+`.cache/webkit-particle-qa/`. It does not use Safari's profile or record a device.
+This is macOS WebKit coverage, not proof of behavior on a physical iPhone GPU.

@@ -2483,7 +2483,9 @@ export function createGrainScene(canvas, opts = {}) {
       if (canvas.style.height !== cssH + 'px') canvas.style.height = cssH + 'px';
       S.sceneW = L.hero.w; S.sceneH = L.hero.h;
     }
-    let dpr = Math.min(window.devicePixelRatio || 1, PAGE && coarse ? 2 : 3);   // page mode on a phone: 2 is plenty
+    // Match retina phones as well as desktop displays. A forced 2x cap blurred
+    // the entire particle surface on 3x iPhones, even with correct compositing.
+    let dpr = Math.min(window.devicePixelRatio || 1, 3);
     const budget = coarse ? 9e6 : 15e6;   // device-pixel budget
     if (cssW * cssH * dpr * dpr > budget) dpr = Math.sqrt(budget / (cssW * cssH));
     if (S.dprCap) dpr = Math.min(dpr, S.dprCap);

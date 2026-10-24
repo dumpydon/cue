@@ -6,14 +6,15 @@ import path from 'node:path';
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const output = path.resolve(here, '../dist/site');
 function escapeHTML(value) { return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;'); }
-async function renderPages(directory, snippets, release, mediaVersions) {
+async function renderPages(directory, snippets, release, mediaVersions, assetRevision) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const file = path.join(directory, entry.name);
-    if (entry.isDirectory()) { await renderPages(file, snippets, release, mediaVersions); continue; }
+    if (entry.isDirectory()) { await renderPages(file, snippets, release, mediaVersions, assetRevision); continue; }
     if (!entry.name.endsWith('.html')) continue;
     let html = await readFile(file, 'utf8');
     for (const [name, snippet] of Object.entries(snippets)) html = html.replaceAll(`<!-- ${name} -->`, snippet);
     for (const [asset, version] of Object.entries(mediaVersions)) html = html.replaceAll(asset + '"', asset + '?v=' + version + '"');
+    html = html.replace(/((?:src|href)="\/(?:js|styles)\/[^"?]+\.(?:js|css))"/g, '$1?v=' + assetRevision + '"');
     if (html.includes('<!-- RELEASE_DOWNLOADS -->')) {
       const cards = Object.entries(release.assets || {}).map(([arch, asset]) => {
         if (!['arm64','x64'].includes(arch) || asset.url !== '/get/mac/' + arch || !/^[a-f0-9]{64}$/.test(asset.sha256)) throw Error('Invalid public download metadata');
@@ -23,6 +24,35 @@ async function renderPages(directory, snippets, release, mediaVersions) {
     }
     await writeFile(file, html);
   }
+}
+export async function versionAssets(directory) {
+  const files = [];
+  async function collect(folder) {
+    for (const entry of await readdir(folder, { withFileTypes: true })) {
+      const file = path.join(folder, entry.name);
+      if (entry.isDirectory()) await collect(file);
+      else if (/\.(?:js|css)$/.test(entry.name)) files.push(file);
+    }
+  }
+  await collect(directory);
+  files.sort();
+  const hash = createHash('sha256');
+  const sources = new Map();
+  for (const file of files) {
+    const source = await readFile(file, 'utf8');
+    sources.set(file, source);
+    hash.update(path.relative(directory, file)).update('\0').update(source).update('\0');
+  }
+  // One content revision for the graph also handles the engine/worker cycle.
+  // An updated engine always gives the entry point AND every import a new URL.
+  const revision = hash.digest('hex').slice(0, 16);
+  for (const [file, source] of sources) {
+    if (!file.endsWith('.js')) continue;
+    const revised = source.replace(/(['"])(\.{1,2}\/[^'"\s?]+\.js)\1/g,
+      (_match, quote, url) => quote + url + '?v=' + revision + quote);
+    await writeFile(file, revised);
+  }
+  return revision;
 }
 export async function verifiedParts(release, staging) {
   const files = [];
@@ -50,12 +80,13 @@ export async function build({ sourceCheck = false } = {}) {
   await rm(output, { recursive: true, force: true });
   await mkdir(output, { recursive: true });
   await cp(path.join(here, 'public'), output, { recursive: true });
+  const assetRevision = await versionAssets(output);
   const snippets = {};
   for (const [name, file] of Object.entries({ SITE_NAV: 'nav', SITE_FOOTER: 'footer', DOWNLOAD_MENU: 'download-menu', FILM_PLAYER: 'film-player', DESKTOP_DEMO: 'desktop-demo', PRICING: 'pricing' })) snippets[name] = await readFile(path.join(here, 'components', file + '.html'), 'utf8');
   const film = JSON.parse(await readFile(path.join(here, 'film.json'), 'utf8'));
   const poster = await readFile(path.join(here, 'public/media/cue-launch-poster.jpg'));
   const mediaVersions = { '/media/cue-launch.mp4': film.sha256.slice(0, 12), '/media/cue-launch.vtt': film.sha256.slice(0, 12), '/media/cue-launch-poster.jpg': createHash('sha256').update(poster).digest('hex').slice(0, 12) };
-  await renderPages(output, snippets, release, mediaVersions);
+  await renderPages(output, snippets, release, mediaVersions, assetRevision);
   for (const piece of pieces) {
     const target = path.join(output, 'downloads', piece.relative);
     await mkdir(path.dirname(target), { recursive: true });

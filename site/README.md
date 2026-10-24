@@ -110,6 +110,10 @@ controls and does not ask users to disable system security or reset permissions.
   from the repository root with the local preview running. It checks retina touch
   portrait/landscape, desktop, animation and scrolling, valid transparent pixels,
   and HDR color preservation. Also check the result on an actual iPhone.
+- On macOS, `swift site/scripts/particle-webkit-qa.swift` also checks WebKit's
+  final composited page with emulated 3x phone inputs. It uses an isolated
+  nonpersistent web view, and saves portrait, scroll and landscape snapshots.
+  Neither desktop browser engine substitutes for a physical iPhone GPU check.
 - Verify the published HTML, MP4 range responses, and complete ZIP checksum
   after deployment. Keep the same local signing identity for local updates.
 
