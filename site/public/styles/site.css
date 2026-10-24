@@ -243,8 +243,7 @@ button,input{font:inherit}button,a,input,summary{-webkit-tap-highlight-color:tra
 .site-footer .footby{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;column-gap:8px;row-gap:6px;font-size:12.5px;color:#8a8b8d}
 .site-footer .fbwho{display:inline-flex;align-items:center;gap:8px;min-height:36px;color:#a5c9ff;font-size:18.75px;font-weight:700;letter-spacing:.025em;transition:color .15s}
 .site-footer .fbwho span{text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:4px}
-.site-footer .fbwho:hover{color:#d1e3ff}
-.site-footer .footer-github,.site-footer .footer-socials svg{display:block;width:21px;height:21px;flex-shrink:0}
+.site-footer .footer-socials svg{display:block;width:21px;height:21px;flex-shrink:0}
 .site-footer .footer-socials{grid-column:2;display:flex;align-items:center}
 .site-footer .footer-socials a{display:inline-flex;align-items:center;gap:8px;min-height:32px;font-size:13.5px;font-weight:500;color:#9aa0aa}
 .site-footer .footer-socials a:hover{color:#f3f4f6}
