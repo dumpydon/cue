@@ -21,7 +21,7 @@
       <button class="tb-settings" id="tb-settings-btn" title="Settings" aria-label="Settings"></button>
       <button class="tb-protection" id="protection-btn" type="button" title="Loading screen-share protection status" aria-label="Screen-share protection" aria-pressed="false" disabled></button>
       <button class="tb-modes" id="modes-btn" type="button" title="Meeting mode: General" aria-label="Meeting mode: General" aria-haspopup="menu" aria-expanded="false" aria-controls="meeting-mode-menu"></button>
-      <button class="tb-sessions" id="sessions-btn" type="button" title="View sessions" aria-label="View sessions"></button>
+      <button class="tb-sessions" id="sessions-btn" type="button" title="Chat and recording history" aria-label="Chat and recording history"></button>
       <div class="tb-divider"></div>
       <button class="tb-hide" id="hide-btn" title="Hide" aria-label="Hide"><span class="chev"></span><span class="tb-hide-label">Hide</span></button>
       <div class="tb-divider"></div>
@@ -79,7 +79,7 @@
                   <span class="audio-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
                 </span>
               </div>
-              <button type="button" id="new-answer-thread" title="Clear Cue answers and start a fresh thread. Your live transcript is kept.">New thread</button>
+              <button type="button" id="new-answer-thread" title="Save this chat and start a new one. Your live transcript is kept.">New chat</button>
             </div>
 
         <!-- Two-column layout: responses (left) + live transcript sidebar (right) -->
@@ -87,6 +87,10 @@
 
           <!-- Left column: AI responses -->
           <div id="panel-main">
+            <div id="chat-strip">
+              <button type="button" id="chat-title" title="Open this chat in History">New chat</button>
+              <button type="button" id="chat-memory" title="View this chat’s memory and context budget">Memory</button>
+            </div>
             <div id="answer-feed">
               <div id="messages" tabindex="0" aria-label="AI responses"></div>
               <button id="latest-answer" type="button" hidden>↓ Latest answer</button>
@@ -147,12 +151,20 @@
     <section id="sessions" class="glass" role="dialog" aria-modal="true" aria-labelledby="sessions-title">
       <div class="sessions-head">
         <img src="assets/cue-mark.svg" width="24" height="24" alt="" />
-        <h2 id="sessions-title">Sessions</h2>
+        <h2 id="sessions-title">History</h2>
         <button id="sessions-refresh" class="session-icon-btn" title="Refresh sessions" aria-label="Refresh sessions"></button>
         <button id="sessions-close" class="s-close">Done</button>
       </div>
-      <p class="sessions-caption">Your saved conversations and notes · stored on this Mac</p>
-      <button id="sessions-back" class="session-back hidden">← All sessions</button>
+      <p class="sessions-caption">Chats, recordings and preferences · saved on this device</p>
+      <div id="history-tabs" class="history-actions" role="group" aria-label="History type">
+        <button type="button" class="history-button" data-tab="chats" aria-pressed="true">Chats</button>
+        <button type="button" class="history-button" data-tab="recordings" aria-pressed="false">Recordings</button>
+        <button type="button" class="history-button" data-tab="trash" aria-pressed="false">Trash</button>
+      </div>
+      <input id="history-search" class="history-input" type="search" placeholder="Search history" aria-label="Search history" maxlength="160" />
+      <button id="history-new" type="button" class="history-button">+ New chat</button>
+      <button id="sessions-back" class="session-back hidden">← All history</button>
+      <p id="history-notice" role="status"></p>
       <div id="sessions-content" tabindex="0" aria-live="polite"></div>
     </section>
   </div>
@@ -442,6 +454,7 @@
   <script src="model-picker.js"></script>
   <script src="meeting-modes.js"></script>
   <script src="audio-activity.js"></script>
+  <script src="user-messages.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

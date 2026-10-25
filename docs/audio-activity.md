@@ -1,7 +1,7 @@
 # Live audio inputs
 
 Two compact indicators share the transcription-status header, above Cue's answers
-and next to **New thread**, without consuming an extra row of answer space:
+and next to **New chat**, without consuming an extra row of answer space:
 
 - **You**, with a microphone icon and a centered waveform, follows microphone input.
 - **Call**, with a monitor icon and rising level bars, follows system / meeting audio.

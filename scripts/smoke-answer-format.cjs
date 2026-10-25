@@ -38,7 +38,7 @@ app.on('browser-window-created', (_event, win) => {
     }
     try {
       const external = []; session.defaultSession.webRequest.onBeforeRequest({ urls:['http://*/*', 'https://*/*'] }, (details, callback) => { external.push(details.url); callback({ cancel:true }); });
-      await until(() => js('!!window.CueAnswerFormat && !!document.querySelector("#messages .ai-text")'), 'renderer initialized');
+      await until(() => js('!!window.CueAnswerFormat && !!document.querySelector("#messages .ai-text, #messages .chat-empty")'), 'renderer initialized');
       win.setBounds(geometry.restoreBounds({windowWidth:820,windowHeight:750}, screen.getPrimaryDisplay().workArea));
       await js("document.querySelector('#messages').replaceChildren()");
       wc.send('llm:start', { userBubble:'Solve LeetCode 643', small:false });
@@ -93,7 +93,7 @@ app.on('browser-window-created', (_event, win) => {
 
       ipcMain.removeHandler('sessions:list'); ipcMain.handle('sessions:list', () => [{ id:'synthetic',title:'Formatting test',turnCount:1,startedAt:1 }]);
       ipcMain.removeHandler('sessions:get'); ipcMain.handle('sessions:get', () => ({ id:'synthetic',title:'Formatting test',turnCount:1,startedAt:1,summary:answer,keyPoints:['The result is \\(\\frac{1}{k}\\sum a_i\\).'],transcript:[{ channel:'you',text:hostile,ts:1 }] }));
-      await js("document.querySelector('#sessions-btn').click()"); await until(() => js("!!document.querySelector('.session-card')"), 'saved sessions');
+      await js("document.querySelector('#sessions-btn').click(); document.querySelector('[data-tab=recordings]').click()"); await until(() => js("!!document.querySelector('.session-card')"), 'saved sessions');
       await js("document.querySelector('.session-card').click()"); await until(() => js("!!document.querySelector('.session-summary .answer-code')"), 'saved notes share formatting');
       assert.equal(await js("document.querySelector('.session-summary pre code').textContent"), code);
       assert.ok(await js("!!document.querySelector('.session-notes .katex')"));

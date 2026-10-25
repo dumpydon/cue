@@ -11,14 +11,14 @@ function summary(meeting, activeId) {
   };
 }
 
-function listSessions(store, activeId) {
-  return (store ? store.all() : []).slice().sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0)).slice(0, 50).map(meeting => summary(meeting, activeId));
+function listSessions(store, activeId, { trash = false } = {}) {
+  return (store ? store.all() : []).filter(m => !!m.deletedAt === !!trash).sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0)).map(meeting => summary(meeting, activeId));
 }
 
 function getSession(store, id, activeId) {
   if (typeof id !== 'string' || id.length > 200) return null;
   const meeting = store?.get(id);
-  if (!meeting) return null;
+  if (!meeting || meeting.deletedAt) return null;
   return {
     ...summary(meeting, activeId), keyPoints: texts(meeting.keyPoints), decisions: texts(meeting.decisions),
     actionItems: texts(meeting.actionItems), followUp: texts(meeting.followUp),

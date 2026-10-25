@@ -6,7 +6,7 @@ test('menu labels follow listening / visibility / protection and every action is
   const calls = [];
   const actions = Object.fromEntries(['toggleListening', 'toggleVisibility', 'toggleProtection', 'openSessions', 'openPreferences', 'quit'].map(name => [name, () => calls.push(name)]));
   const menu = menuTemplate({ listening: false, visible: true, protection: { available: true, enabled: false } }, actions);
-  assert.deepEqual(menu.filter(item => item.id).map(item => item.label), ['Start Listening', 'Hide Cue', 'Enable Invisibility', 'View Sessions', 'Preferences…', 'Quit Cue']);
+  assert.deepEqual(menu.filter(item => item.id).map(item => item.label), ['Start Listening', 'Hide Cue', 'Enable Invisibility', 'View History', 'Preferences…', 'Quit Cue']);
   for (const item of menu.filter(item => item.id)) item.click();
   assert.deepEqual(calls, Object.keys(actions));
   const changed = menuTemplate({ listening: true, visible: false, transitioning: true, protection: { available: false, enabled: true } }, actions);

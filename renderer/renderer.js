@@ -108,9 +108,12 @@
   let aiEl = null;       // current streaming <div class="ai-text">
   let caretEl = null;
   let responseCount = 0;
-  const MAX_RESPONSES = 20;
+  const MAX_RESPONSES = 60;
+  let activeChat = null, chatRevision = 0, earlierOffset = 0;
 
   const messages = $('#messages');
+  const userMessages = window.CueUserMessages.install({ container: messages,
+    copyText: text => cue.copyAnswerText(text), onError: message => showStatus(message) });
   const latestAnswer = $('#latest-answer');
   const nearLatestAnswer = () => messages.scrollHeight - messages.scrollTop - messages.clientHeight < 72;
   const updateLatestAnswer = () => { latestAnswer.hidden = nearLatestAnswer(); };
@@ -161,16 +164,76 @@
       const result = await cue.resetAnswerThread();
       if (!result.ok) { showToast(result.message, 3500); return; }
       input.focus();
-      showToast('New answer thread. Your live transcript is kept.', 2600);
+      showToast('New chat. Your previous conversation is saved in History.', 2600);
     } catch { showToast('Could not start a new thread. Try again.', 3500); }
   });
   cue.on('answer-thread:cleared', () => clearMessages());
 
+  function updateChatTitle(chat) {
+    activeChat = chat;
+    $('#chat-title').textContent = chat?.title || 'New chat';
+    $('#chat-memory').textContent = chat ? 'Memory' + (chat.memories?.length ? ` · ${chat.memories.length}` : '') : 'History';
+    $('#chat-title').title = chat?.title ? `${chat.title} — open in History` : 'Open chat history';
+  }
+  function savedGroup(exchange) {
+    const group = document.createElement('div'); group.className = 'response-group'; group.dataset.exchangeId = exchange.id;
+    const sep = document.createElement('div'); sep.className = 'response-sep';
+    sep.textContent = new Date(exchange.createdAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }); group.append(sep);
+    group.append(userMessages.create(exchange.user));
+    if (exchange.assistant) {
+      const answer = document.createElement('div'); answer.className = 'ai-text answer-content' + (exchange.small ? ' small' : '');
+      answer.dataset.raw = exchange.assistant; answer.innerHTML = window.CueAnswerFormat.render(exchange.assistant); answer.setAttribute('aria-busy', 'false');
+      group.append(answer); addAnswerActions(answer);
+    }
+    if (exchange.status !== 'complete') {
+      const status = document.createElement('p'); status.className = 'chat-interrupted';
+      status.textContent = exchange.status === 'pending' ? 'Generating…' : exchange.status === 'interrupted' ? 'Answer interrupted. Ask again to continue.' : 'Answer failed. ' + (exchange.error || 'Please try again.');
+      group.append(status);
+    }
+    return group;
+  }
+  function earlierControl() {
+    messages.querySelector('.history-load-earlier')?.remove();
+    if (!earlierOffset || !activeChat) return;
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'history-button history-load-earlier'; button.textContent = 'Load earlier messages';
+    button.addEventListener('click', async () => {
+      const id = activeChat?.id, revision = chatRevision; button.disabled = true;
+      try {
+        const page = await cue.chatGet(id, earlierOffset);
+        if (id !== activeChat?.id || revision !== chatRevision) return;
+        const height = messages.scrollHeight, top = messages.scrollTop;
+        const fragment = document.createDocumentFragment(); page.exchanges.forEach(e => fragment.append(savedGroup(e)));
+        button.remove(); messages.prepend(fragment); earlierOffset = page.offset; responseCount += page.exchanges.length;
+        userMessages.refresh(); earlierControl(); messages.scrollTop = top + messages.scrollHeight - height;
+      } catch (error) { showStatus('Could not load earlier messages. ' + error.message); }
+      finally { button.disabled = false; }
+    }); messages.prepend(button);
+  }
+  function restoreChat(snapshot) {
+    chatRevision++; clearMessages();
+    const chat = snapshot?.chat; updateChatTitle(chat); earlierOffset = chat?.offset || 0;
+    if (chat?.exchanges?.length) {
+      chat.exchanges.forEach(exchange => messages.append(savedGroup(exchange))); responseCount = chat.exchanges.length;
+      userMessages.refresh(); earlierControl(); messages.scrollTop = messages.scrollHeight;
+    } else {
+      const empty = document.createElement('div'); empty.className = 'chat-empty';
+      empty.textContent = 'Ask a question. Your conversation will be saved here.'; messages.append(empty);
+    }
+    updateLatestAnswer();
+    if (snapshot?.warnings?.length) showStatus(snapshot.warnings[0]);
+  }
+  cue.on('chats:active', restoreChat);
+  cue.on('chats:meta', snapshot => { if (snapshot.chat?.id === activeChat?.id) updateChatTitle(snapshot.chat); });
+  cue.on('chats:changed', async () => {
+    const revision = chatRevision;
+    try { const snapshot = await cue.chatsState(); if (revision === chatRevision && snapshot.chat?.id === activeChat?.id) updateChatTitle(snapshot.chat); } catch { /* history errors are surfaced on open */ }
+  });
+  $('#chat-title').addEventListener('click', () => sessionHistory.open({ id: activeChat?.id }));
+  $('#chat-memory').addEventListener('click', () => sessionHistory.open({ id: activeChat?.id, memory: true }));
+
   function addUserBubble(text) {
-    const b = document.createElement('div');
-    b.className = 'user-bubble';
-    b.textContent = text;
-    messages.appendChild(b);
+    messages.appendChild(userMessages.create(text));
+    userMessages.refresh();
   }
 
   function startAi(small) {
@@ -539,8 +602,8 @@
   $('#input-area').addEventListener('click', () => input.focus());
 
   function send() {
-    const text = input.value.trim();
-    if (!text) { runMode('assist', ''); return; }
+    const text = input.value;
+    if (!text.trim()) { runMode('assist', ''); return; }
     const wasFromSTT = inputFromSTT;
     
     // Save to history before clearing (in case user wants to redo)
@@ -1264,26 +1327,28 @@
     const title = last && last.caption ? last.caption.split('\n')[0].slice(0, 80) : 'Slide ' + count;
     showToast(`Slide ${count} captured · ${title}`, 3000);
   });
-  cue.on('llm:start', ({ userBubble, small, category }) => {
+  cue.on('llm:start', ({ userBubble, small, category, chat, exchangeId }) => {
+    chatRevision++;
+    if (chat) updateChatTitle(chat);
+    messages.querySelector('.chat-empty')?.remove();
     const follow = nearLatestAnswer();
     if (aiEl) finalizeAi();
     responseCount++;
     if (responseCount > MAX_RESPONSES) {
       const oldest = messages.querySelector('.response-group');
-      if (oldest) oldest.remove();
+      if (oldest) { if (oldest.dataset.exchangeId) earlierOffset++; oldest.remove(); }
       responseCount = MAX_RESPONSES;
+      earlierControl();
     }
     const group = document.createElement('div');
     group.className = 'response-group';
+    if (exchangeId) group.dataset.exchangeId = exchangeId;
     const sep = document.createElement('div');
     sep.className = 'response-sep';
     sep.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     group.appendChild(sep);
     if (userBubble) {
-      const b = document.createElement('div');
-      b.className = 'user-bubble';
-      b.textContent = userBubble;
-      group.appendChild(b);
+      group.appendChild(userMessages.create(userBubble));
     }
     if (category) {
       const pill = document.createElement('div');
@@ -1299,6 +1364,7 @@
     aiEl.appendChild(caretEl);
     group.appendChild(aiEl);
     messages.appendChild(group);
+    userMessages.refresh();
     // Scroll only the response feed, never its ancestors. Do this now: a
     // deferred scroll could override the user scrolling up before the next
     // frame. Subsequent tokens follow only while the reader stays near bottom.
@@ -1336,6 +1402,7 @@
       appendTranscriptHistoryTurn(t.channel, t.text, false);
     }
   });
+  cue.on('transcript:removed', () => { clearTranscriptSidebar(); clearLiveSpeech(); });
   let statusTimer = null;
   function showStatus(message, button) {
     let el = document.getElementById('cue-status');
@@ -2172,7 +2239,9 @@
     }
 
     smartBtn.classList.toggle('on', !!settings.smart);
-    showExample();
+    const bootChatRevision = chatRevision;
+    try { const snapshot = await cue.chatsState(); if (chatRevision === bootChatRevision) restoreChat(snapshot); }
+    catch (error) { showStatus('Could not restore chat history. ' + error.message); }
     syncPlaceholder();
     updateSendButtonState(); // Initialize send button state
 

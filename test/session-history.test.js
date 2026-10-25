@@ -27,9 +27,19 @@ test('details include notes and transcripts, accept legacy follow-up text and ex
   for (const id of [null, {}, '../../outside', 'x'.repeat(201)]) assert.equal(getSession(store, id), null);
 });
 
-test('empty and capped session history are safe to open', () => {
+test('empty history is safe and older recordings remain accessible', () => {
   assert.deepEqual(listSessions(null), []); assert.equal(getSession(null, 'id'), null);
   const store = createMeetingStore();
   for (let i = 0; i < 60; i++) store.update(store.add().id, { startedAt: i });
-  assert.equal(listSessions(store).length, 50); assert.equal(listSessions(store)[0].startedAt, 59);
+  assert.equal(listSessions(store).length, 60); assert.equal(listSessions(store)[0].startedAt, 59);
+});
+
+test('removed recordings are excluded from history and memory until restored', () => {
+  const store = createMeetingStore(), meeting = store.add();
+  store.update(meeting.id, { summary: 'Private notes', deletedAt: 123 });
+  assert.deepEqual(listSessions(store), []); assert.equal(getSession(store, meeting.id), null);
+  assert.deepEqual(store.recentSummaries(), []);
+  assert.equal(listSessions(store, null, { trash: true })[0].id, meeting.id);
+  store.update(meeting.id, { deletedAt: null });
+  assert.equal(listSessions(store).length, 1); assert.equal(getSession(store, meeting.id).summary, 'Private notes');
 });

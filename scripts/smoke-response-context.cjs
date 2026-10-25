@@ -90,7 +90,7 @@ app.on('browser-window-created', (_, win) => {
       await until(() => js('document.querySelector("#messages").children.length===0'), 'New thread clears answers');
       request = await ask('ask', 'Fresh question.');
       assert.equal(request.turns.length, 1);
-      assert.match(request.turns[0].text, /Redis queue/, 'new answer thread keeps the live transcript');
+      assert.doesNotMatch(request.turns[0].text, /Redis queue/, 'new saved chat excludes unrelated inactive recordings');
 
       await js('window.cue.meetingModesMutate("activate",{id:"interview"})');
       request = await ask('ask', 'Why do you want to work here?');

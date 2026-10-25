@@ -36,8 +36,13 @@ contextBridge.exposeInMainWorld('cue', {
   windowShortcutContext: context => ipcRenderer.send('window:shortcut-context', context),
   discoveryRefresh: () => ipcRenderer.invoke('discovery:refresh'),
   windowZoomGet: () => ipcRenderer.invoke('window:zoom-get'),
-  sessionsList: () => ipcRenderer.invoke('sessions:list'),
+  sessionsList: options => ipcRenderer.invoke('sessions:list', options),
   sessionGet: id => ipcRenderer.invoke('sessions:get', id),
+  sessionMutate: (action, id, title) => ipcRenderer.invoke('sessions:mutate', action, id, title),
+  chatsState: () => ipcRenderer.invoke('chats:state'),
+  chatsList: options => ipcRenderer.invoke('chats:list', options),
+  chatGet: (id, before) => ipcRenderer.invoke('chats:get', id, before),
+  chatMutate: (action, id, payload) => ipcRenderer.invoke('chats:mutate', action, id, payload),
   clearTranscript: () => ipcRenderer.invoke('transcript:clear'),
   copyAnswerText: text => ipcRenderer.invoke('answer:copy-text', text),
   resetAnswerThread: () => ipcRenderer.invoke('answer-thread:reset'),
@@ -67,7 +72,7 @@ contextBridge.exposeInMainWorld('cue', {
   log: (msg) => ipcRenderer.send('log', msg),
   on: (channel, cb) => {
     const allowed = ['capture:state', 'llm:start', 'llm:token', 'llm:done', 'llm:error', 'status', 'transcript', 'transcript:restore', 'stt:interim', 'stt:final', 'stt:status', 'vad:state', 'applink:consent-request', 'hide:toggle', 'whisper:download-progress', 'whisper:models-changed', 'publik:state', 'slides:update'];
-    if (!['permissions:changed', 'protection:changed', 'window:zoom-changed', 'ui:reveal', 'ui:open-settings', 'ui:open-sessions', 'models:changed', 'modes:changed', 'answer-thread:cleared'].includes(channel) && !allowed.includes(channel)) return;
+    if (!['permissions:changed', 'protection:changed', 'window:zoom-changed', 'ui:reveal', 'ui:open-settings', 'ui:open-sessions', 'models:changed', 'modes:changed', 'answer-thread:cleared', 'chats:active', 'chats:meta', 'chats:changed', 'transcript:removed'].includes(channel) && !allowed.includes(channel)) return;
     ipcRenderer.on(channel, (_e, data) => cb(data));
   }
 });

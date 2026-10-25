@@ -1,7 +1,7 @@
 {
   "name": "cue",
-  "version": "0.4.15",
-  "description": "Open-source cross-platform invisible AI overlay — three separate inputs (screen, mic, system audio) into an LLM. A Cluely-style copilot for meetings and coding problems.",
+  "version": "0.4.16",
+  "description": "Open-source cross-platform invisible AI overlay \u2014 three separate inputs (screen, mic, system audio) into an LLM. A Cluely-style copilot for meetings and coding problems.",
   "license": "GPL-3.0-or-later",
   "author": "cue",
   "main": "main.js",
@@ -46,6 +46,7 @@
     "@anthropic-ai/sdk": "^0.32.1",
     "@google/genai": "^2.12.0",
     "highlight.js": "11.12.0",
+    "js-tiktoken": "1.0.21",
     "katex": "0.19.0",
     "lucide-static": "^0.468.0",
     "mammoth": "^1.8.0",

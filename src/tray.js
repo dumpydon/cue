@@ -4,7 +4,7 @@ function menuTemplate(state, actions) {
     { id: 'visibility', label: state.visible ? 'Hide Cue' : 'Show Cue', click: actions.toggleVisibility },
     { id: 'invisibility', label: state.protection.enabled ? 'Disable Invisibility' : 'Enable Invisibility', enabled: state.protection.available, click: actions.toggleProtection },
     { type: 'separator' },
-    { id: 'sessions', label: 'View Sessions', click: actions.openSessions },
+    { id: 'sessions', label: 'View History', click: actions.openSessions },
     { id: 'preferences', label: 'Preferences…', click: actions.openPreferences },
     { type: 'separator' },
     { id: 'quit', label: 'Quit Cue', click: actions.quit }

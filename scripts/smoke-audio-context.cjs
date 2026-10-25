@@ -55,7 +55,7 @@ app.on('browser-window-created', (_event, win) => {
       fs.writeFileSync(path.join(process.env.CUE_WINDOW_QA_DIR, name + '.png'), image.toPNG());
     }
     try {
-      await until(() => js('!!window.CueListening && !!document.querySelector("#messages .ai-text")'), 'renderer startup');
+      await until(() => js('!!window.CueListening && !!document.querySelector("#messages .ai-text, #messages .chat-empty")'), 'renderer startup');
       assert.equal(await meterState('you'), 'off'); assert.equal(await meterState('them'), 'off');
       await js(`(() => {
         window.fixtures = { contexts: [], gains: {}, streams: {} };

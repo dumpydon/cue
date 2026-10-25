@@ -20,7 +20,8 @@ function loadMeetingsFile(file) {
 
 function saveMeetingsFile(file, meetings) {
   try {
-    fs.writeFileSync(file, JSON.stringify(meetings, null, 2));
+    const { atomicWrite } = require('./chat-store');
+    atomicWrite(file, meetings);
     return true;
   } catch {
     return false;
@@ -48,7 +49,7 @@ function createMeetingStore(opts = {}) {
 
     flush() {
       if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-      if (file) saveMeetingsFile(file, meetings);
+      if (file && !saveMeetingsFile(file, meetings)) throw new Error('Could not save recording history. Check available disk space.');
     },
 
     // Keep the newest `max` meetings; returns how many were dropped.
@@ -102,7 +103,7 @@ function createMeetingStore(opts = {}) {
     // Compact summaries of the most recent meetings (for memory injection).
     recentSummaries(n = 3) {
       return meetings
-        .filter((m) => m.summary)
+        .filter((m) => m.summary && !m.deletedAt)
         .slice(-n)
         .map((m) => ({ id: m.id, title: m.title, startedAt: m.startedAt, summary: m.summary }));
     },

@@ -83,10 +83,11 @@ app.on('browser-window-created', (_event, win) => {
       await js(`new Promise((resolve, reject) => {
         const deadline = Date.now() + 4000;
         const timer = setInterval(() => {
-          if (document.querySelector('#messages .ai-text')) { clearInterval(timer); resolve(); }
+          if (document.querySelector('#messages .ai-text, #messages .chat-empty')) { clearInterval(timer); resolve(); }
           else if (Date.now() > deadline) { clearInterval(timer); reject(new Error('renderer did not initialize')); }
         }, 25);
       })`);
+      await js("if(document.querySelector('.chat-empty'))document.querySelector('#messages').innerHTML='<div class=\"ai-text\">Synthetic selectable response</div>'");
       assert.equal(await js('window.cue.settingsGet().then(s => Object.values(s.apiKeys).every(key => !key))'), true);
       assert.equal(await js("document.querySelector('.drag-pill') === null"), true);
       assert.equal(await js("document.querySelectorAll('.window-resize-handle').length"), 8);
@@ -194,6 +195,7 @@ app.on('browser-window-created', (_event, win) => {
         const loaded = new Promise(resolve => wc.once('did-finish-load', resolve));
         wc.reload(); await loaded;
         await waitForProtection('eye');
+        await js("new Promise(resolve=>{const t=setInterval(()=>{if(document.querySelector('.chat-empty')){clearInterval(t);document.querySelector('#messages').innerHTML='<div class=\"ai-text\">Synthetic selectable response</div>';resolve();}},20);})");
         assert.equal(await js("document.documentElement.classList.contains('incognito-mode')"), false);
         assert.equal(await js("document.querySelector('#protection-dot').classList.contains('visible')"), true, 'reload restores the current run’s red warning');
         const before = win.protectionCalls.length;
@@ -290,7 +292,7 @@ app.on('browser-window-created', (_event, win) => {
 
       for (const direction of [-1, 1]) for (const corner of [false, true]) {
         await reset();
-        const fraction = direction < 0 ? .97 : .03;
+        const fraction = direction < 0 ? .98 : .02;
         const grab = await point('#panel', fraction, .08);
         const cursorX = initial.x + grab.x, cursorY = initial.y + grab.y;
         const targetX = direction < 0 ? screenBounds.x : screenBounds.x + screenBounds.width - 1;

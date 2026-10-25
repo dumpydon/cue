@@ -24,7 +24,9 @@ const { parseDocumentFile } = require('./src/resume');
 const { createLLM } = require('./src/llm');
 const { MODES } = require('./src/prompts');
 const { questionTranscript, responseTokenBudget } = require('./src/response-context');
-const { createResponseThread, responseScope } = require('./src/response-thread');
+const { responseScope } = require('./src/response-thread');
+const { createChatStore } = require('./src/chat-store');
+const { buildChatContext } = require('./src/chat-context');
 const { rms16 } = require('./src/wav');
 const { createStreamingSTT } = require('./src/stt-streaming');
 const { AdaptiveVAD, AudioRingBuffer } = require('./src/vad');
@@ -135,7 +137,16 @@ let sttDisabled = false; // set when the key can't reach any speech model (stops
 const buffers = { you: [], them: [] };
 const transcript = []; // { channel, text, ts } — capped at MAX_TRANSCRIPT_TURNS
 const liveTranscript = { you: null, them: null };
-const responseThread = createResponseThread();
+let chatStore = null;
+let chatGeneration = 0;
+function chatSnapshot() { return { chat: chatStore?.page(), warnings: chatStore?.warnings || [], busy: state.busy }; }
+function publishChat() { send('chats:active', chatSnapshot()); }
+function newChat() {
+  const settings = store.getSettings();
+  chatGeneration++;
+  chatStore.create(settings.meetingModes?.activeId || 'general', responseScope(settings));
+  publishChat();
+}
 function transcriptWithLiveSpeech() {
   return [...transcript, ...Object.values(liveTranscript).filter(turn => turn?.text.trim())]
     .sort((a, b) => a.ts - b.ts).slice(-MAX_TRANSCRIPT_TURNS);
@@ -378,7 +389,7 @@ function createApplicationMenu() {
   const preferences = { label: 'Preferences…', accelerator: 'CommandOrControl+,', click: () => showMainWindow('ui:open-settings') };
   const template = [
     ...(isMac ? [{ label: 'Cue', submenu: [{ role: 'about' }, { type: 'separator' }, preferences, { type: 'separator' }, { role: 'services' }, { type: 'separator' }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' }, { role: 'quit', label: 'Quit Cue' }] }] : []),
-    { label: 'File', submenu: [{ label: 'View Sessions', click: () => showMainWindow('ui:open-sessions') }, ...(!isMac ? [preferences, { role: 'quit' }] : [])] },
+    { label: 'File', submenu: [{ label: 'View History', click: () => showMainWindow('ui:open-sessions') }, ...(!isMac ? [preferences, { role: 'quit' }] : [])] },
     { role: 'editMenu' },
     { label: 'View', submenu: [
       { label: 'Zoom In', accelerator: 'CommandOrControl+Plus', click: () => windowZoom?.change('in') },
@@ -448,6 +459,10 @@ function createWindow() {
   if (isMac && typeof win.setHiddenInMissionControl === 'function') win.setHiddenInMissionControl(true);
 
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  win.webContents.on('context-menu', (_event, { selectionText, isEditable }) => {
+    if (selectionText && !isEditable) Menu.buildFromTemplate([{ role: 'copy' }]).popup({ window: win });
+  });
 
   let boundsSaveTimer = null;
   const queueBoundsSave = () => {
@@ -921,10 +936,13 @@ async function runFeature(mode, userText) {
   if (state.busy) return;
   if (!Object.hasOwn(MODES, mode)) return;
   const def = MODES[mode];
-  userText = typeof userText === 'string' ? userText.trim().slice(0, 32000) : '';
+  userText = typeof userText === 'string' ? userText.slice(0, 32000) : '';
+  if (!userText.trim()) userText = '';
   state.busy = true;
   let streamSettled = false; // drop stray tokens from a stream we've already abandoned
-  let threadVersion;
+  let threadVersion, attempt, contextBudget, finalAnswer, failureMessage;
+  const current = () => threadVersion === chatGeneration && attempt?.chatId === chatStore?.activeId;
+  const fail = (message, action) => { failureMessage = message; send('llm:error', { message, action }); };
   try {
     // Finish pending mode edits before a toolbar action or global shortcut
     // takes its settings snapshot. A failed save keeps the draft for retry.
@@ -933,16 +951,24 @@ async function runFeature(mode, userText) {
       if (!saved) { send('llm:error', { message: 'Save or correct your meeting mode edits before asking Cue.' }); return; }
     }
     const settings = store.getSettings();
-    threadVersion = responseThread.prepare(responseScope(settings) + ':' + (meetingMemory?.current?.id || 'no-meeting'));
+    const modeId = settings.meetingModes?.activeId || 'general';
+    if (!chatStore.activeId || chatStore.get().modeId !== modeId) newChat();
+    threadVersion = chatGeneration;
+    const scope = responseScope(settings);
     const llm = createLLM(settings);
     const userBubble = def.userBubble !== null
       ? def.userBubble
-      : (mode === 'ask' ? userText : mode === 'answerThis' ? `"${(userText || '').slice(0, 60)}${userText && userText.length > 60 ? '…' : ''}"` : null);
-    const capturedTranscript = transcriptWithLiveSpeech();
+      : (['ask', 'answerThis'].includes(mode) ? userText : mode === 'leetcode' ? 'Solve what’s on screen' : 'Smart assist');
+    // Typed chats never inherit a different recording merely because it was
+    // the last one opened. An active call remains available to all live actions.
+    const linkedMeeting = chatStore.get().meetingId === meetingMemory?.current?.id;
+    const capturedTranscript = mode === 'ask' && !state.capturing && !linkedMeeting ? [] : transcriptWithLiveSpeech();
     const contextTranscript = mode === 'answerThis' ? questionTranscript(capturedTranscript, userText) : capturedTranscript;
     const targetQuestion = ['ask', 'answerThis'].includes(mode) ? userText : '';
     const category = mode !== 'leetcode' ? detectCategory(contextTranscript, targetQuestion) : null;
-    send('llm:start', { userBubble, small: !!def.small, category });
+    attempt = chatStore.begin({ user: userBubble || userText, mode, scope, category, small: def.small,
+      meetingId: capturedTranscript.length ? meetingMemory?.current?.id : null });
+    send('llm:start', { userBubble, small: !!def.small, category, chat: chatStore.page(), exchangeId: attempt.exchangeId });
 
     if (!llm.ready) {
       const message = llm.configurationError || ('Complete the ' + settings.provider + ' provider settings. Model: ' + (llm.model || 'unset') + '.');
@@ -953,10 +979,10 @@ async function runFeature(mode, userText) {
         const action = !settings.publik.disclosureAccepted
           ? { kind: 'disclosure' }
           : { kind: 'reconnect', label: 'Reconnect' };
-        send('llm:error', { message, action });
+        fail(message, action);
         return;
       }
-      send('llm:error', { message });
+      fail(message);
       return;
     }
     // Never a silent starter (CONTRACT §12.4): the first-run card — balance,
@@ -965,7 +991,7 @@ async function runFeature(mode, userText) {
     // right after provisioning; this gate catches a card that was never
     // acknowledged (e.g. an install provisioned by an earlier release).
     if (settings.provider === publik.PUBLIK_PROVIDER && settings.apiKeys.publik && !settings.publik.cardShown) {
-      send('llm:error', { message: 'publik API is set up. Take a look at the card, then ask again.', action: { kind: 'card' } });
+      fail('publik API is set up. Take a look at the card, then ask again.', { kind: 'card' });
       return;
     }
 
@@ -995,35 +1021,35 @@ async function runFeature(mode, userText) {
     // every feature actually ran with.
     console.log(`[llm] mode=${mode} transcriptTurns=${contextTranscript.length} capturing=${state.capturing}`);
     if (def.transcriptRequired && contextTranscript.length === 0) {
-      send('llm:error', { message: state.capturing
+      fail(state.capturing
         ? 'Nothing has been transcribed yet — say something (or let the other side talk) and try again.'
-        : 'Nothing captured yet — press the listen button first so cue can hear the conversation.' });
+        : 'Nothing captured yet — press the listen button first so cue can hear the conversation.');
       return;
     }
 
     if (['ask', 'answerThis'].includes(mode) && !userText) {
-      send('llm:error', { message: 'Enter a question, or select a transcribed question to answer.' });
+      fail('Enter a question, or select a transcribed question to answer.');
       return;
     }
     if ((mode === 'leetcode' && !imageDataUrl) || (mode === 'assist' && !imageDataUrl && !contextTranscript.length)) {
-      send('llm:error', { message: mode === 'leetcode'
+      fail(mode === 'leetcode'
         ? 'No screen was captured. Allow screen capture or type the coding problem in the question box.'
-        : 'No screen or conversation is available yet. Start listening or type a question so Cue has something to answer.' });
+        : 'No screen or conversation is available yet. Start listening or type a question so Cue has something to answer.');
       return;
     }
 
     const settingsForPrompt = settings;
     let contextBlock = buildInterviewContext(settingsForPrompt, mode, contextTranscript, targetQuestion);
-    // Summaries of the last few meetings, so "what did we agree last time?"
-    // has something to draw on. Never the current meeting, never leetcode.
-    const memoryBlock = mode !== 'leetcode' && meetingMemory ? meetingMemory.memoryBlock() : null;
-    if (memoryBlock) contextBlock = contextBlock ? contextBlock + '\n\n' + memoryBlock : memoryBlock;
     const baseSystem = def.buildSystem ? def.buildSystem(contextBlock, settingsForPrompt.aiRules || '') : (def.system || '');
-    const system = appendModeContext(baseSystem, settings.meetingModes);
+    const systemBase = appendModeContext(baseSystem, settings.meetingModes);
     const built = def.build({ transcript: contextTranscript, userText: userText || '' });
-    // Typed follow-ups retain completed Cue answers. Audio replies use actual
-    // captured speech, and recaps/coding actions start from their own evidence.
-    const turns = responseThread.turns(built, mode === 'ask');
+    const chat = chatStore.get(attempt.chatId);
+    const context = buildChatContext({ system: systemBase, userText: built, question: userText,
+      exchanges: chat.exchanges.filter(e => e.mode !== 'recap'), memories: chat.memories,
+      instructions: chat.instructions, memoryEnabled: chat.memoryEnabled, scope,
+      includeHistory: mode === 'ask' });
+    const { system, turns } = context;
+    contextBudget = context.budget;
 
     // Watchdog: a provider that stalls mid-stream would otherwise hang the await forever,
     // leaving state.busy = true and wedging every later question until an app restart.
@@ -1047,7 +1073,9 @@ async function runFeature(mode, userText) {
           onToken: (t) => {
             if (streamSettled || typeof t !== 'string') return;
             streamedAnswer += t; rearm();
-            if (responseThread.isCurrent(threadVersion)) send('llm:token', { text: t });
+            if (!current()) return;
+            chatStore.append(attempt, t);
+            send('llm:token', { text: t });
           },
           onResponse: settings.provider === publik.PUBLIK_PROVIDER ? (res) => publikNoteHeaders(res && res.headers) : undefined
         }),
@@ -1055,13 +1083,15 @@ async function runFeature(mode, userText) {
       ]);
       const answer = (typeof result === 'string' ? result : streamedAnswer).trim();
       if (!answer) throw new Error('The model returned no answer. Try again, or choose a different model.');
-      // Failed, empty or timed-out responses never become follow-up context.
-      if (mode !== 'recap') responseThread.commit(threadVersion, built, answer);
+      if (current()) {
+        chatStore.finish(attempt, { answer, budget: contextBudget });
+        finalAnswer = answer;
+      }
     } finally {
       streamSettled = true;
       clearTimeout(watchdog);
     }
-    send('llm:done', {});
+    send('llm:done', { budget: contextBudget });
     try {
       store.recordModelUse(llm.provider, llm.model);
       send('models:changed', store.modelChoices(llm.provider));
@@ -1070,14 +1100,19 @@ async function runFeature(mode, userText) {
     // GET /wallet shortly after the answer — one request per answer, debounced.
     if (settings.provider === publik.PUBLIK_PROVIDER) publikScheduleWalletRefresh();
   } catch (e) {
-    if (threadVersion !== undefined && !responseThread.isCurrent(threadVersion)) { send('llm:done', {}); return; }
+    if (attempt && !current()) { send('llm:done', {}); return; }
     recordEvent({ level: 'error', event: 'llm_failed', msg: e && e.message ? e.message : String(e), frame: 'runFeature', context: { mode, provider: store.getSettings().provider } });
     const action = e && e.action ? e.action : null;
-    send('llm:error', { message: e && e.message ? e.message : String(e), action });
+    fail(e && e.message ? e.message : String(e), action);
     if (action) publikHandleErrorAction(action);
   } finally {
     streamSettled = true;
+    if (attempt && !finalAnswer) {
+      try { chatStore.finish(attempt, { status: current() ? 'failed' : 'interrupted', error: failureMessage || 'Answer interrupted before completion.', budget: contextBudget }); }
+      catch { send('status', { message: 'Could not save this answer. Check available disk space.' }); }
+    }
     state.busy = false;
+    send('chats:changed', { activeId: chatStore?.activeId });
   }
 }
 
@@ -1161,13 +1196,64 @@ ipcMain.handle('models:catalog', (event, provider, force) => {
   if (provider !== 'openai') return { models: [], live: false, message: '' };
   return modelCatalog.get({ apiKey: store.getSettings().apiKeys.openai, force: force === true });
 });
-ipcMain.handle('sessions:list', event => {
+ipcMain.handle('sessions:list', (event, options) => {
   if (event.sender !== win?.webContents) throw new Error('Session history is available only in Cue.');
-  return listSessions(meetingStore, state.capturing ? meetingMemory?.current?.id : null);
+  return listSessions(meetingStore, state.capturing ? meetingMemory?.current?.id : null, { trash: options?.trash === true });
 });
 ipcMain.handle('sessions:get', (event, id) => {
   if (event.sender !== win?.webContents) throw new Error('Session history is available only in Cue.');
   return getSession(meetingStore, id, state.capturing ? meetingMemory?.current?.id : null);
+});
+function requireHistory(event, mutate = false) {
+  if (event.sender !== win?.webContents) throw Error('Manage history from Cue.');
+  if (mutate && state.busy) throw Error('Wait for the current answer to finish.');
+}
+ipcMain.handle('sessions:mutate', (event, action, id, title) => {
+  requireHistory(event, true);
+  if (typeof id !== 'string' || !meetingStore?.get(id)) throw Error('Recording not found.');
+  const previous = structuredClone(meetingStore.get(id));
+  if (state.capturing && meetingMemory?.current?.id === id) throw Error('Stop listening before changing this recording.');
+  if (action === 'rename') {
+    if (typeof title !== 'string' || !title.trim() || title.trim().length > 100) throw Error('Use a name between 1 and 100 characters.');
+    meetingStore.update(id, { title: title.trim(), customTitle: true });
+  } else if (action === 'trash') {
+    meetingStore.update(id, { deletedAt: Date.now(), endedAt: meetingStore.get(id).endedAt || Date.now() });
+  } else if (action === 'restore') meetingStore.update(id, { deletedAt: null });
+  else throw Error('Unknown recording action.');
+  try { meetingStore.flush(); }
+  catch (error) { meetingStore.update(id, { ...previous, deletedAt: previous.deletedAt || null, customTitle: previous.customTitle || false }); throw error; }
+  if (action === 'trash' && meetingMemory?.current?.id === id) {
+    meetingMemory.forget(id); transcript.splice(0); liveTranscript.you = null; liveTranscript.them = null;
+    send('transcript:removed', {});
+  }
+  return { ok: true };
+});
+ipcMain.handle('chats:state', event => { requireHistory(event); return chatSnapshot(); });
+ipcMain.handle('chats:list', (event, options) => { requireHistory(event); return chatStore.list({ trash: options?.trash === true, query: options?.query }); });
+ipcMain.handle('chats:get', (event, id, before) => { requireHistory(event); return chatStore.page(id, before); });
+ipcMain.handle('chats:mutate', async (event, action, id, payload) => {
+  requireHistory(event, true);
+  if (action === 'create') newChat();
+  else if (action === 'activate') {
+    const chat = chatStore.get(id);
+    const modes = store.getSettings().meetingModes;
+    if (!modes?.items.some(m => m.id === chat.modeId)) throw Error('This chat’s mode was removed. Restore that mode before continuing the chat.');
+    if (win && !win.isDestroyed()) {
+      const saved = await win.webContents.executeJavaScript('window.CueMeetingModeUI ? window.CueMeetingModeUI.flush() : true');
+      if (!saved) throw Error('Save your mode edits before switching chats.');
+    }
+    requireHistory(event, true);
+    changeMeetingModes('activate', { id: chat.modeId });
+    chatGeneration++; chatStore.activate(id); publishChat();
+  } else if (action === 'rename') { chatStore.rename(id, payload); send('chats:meta', chatSnapshot()); }
+  else if (action === 'trash') {
+    const wasActive = id === chatStore.activeId;
+    chatStore.trash(id); if (wasActive) { chatGeneration++; publishChat(); }
+  } else if (action === 'restore') chatStore.restore(id);
+  else if (action === 'memory') { chatStore.setMemory(id, payload); send('chats:meta', chatSnapshot()); }
+  else throw Error('Unknown chat action.');
+  send('chats:changed', { activeId: chatStore.activeId });
+  return { ok: true };
 });
 ipcMain.handle('settings:get', () => store.redactForRenderer(store.getSettings()));
 ipcMain.handle('answer:copy-text', (event, text) => {
@@ -1178,7 +1264,7 @@ ipcMain.handle('answer:copy-text', (event, text) => {
 ipcMain.handle('answer-thread:reset', event => {
   if (event.sender !== win?.webContents) throw new Error('Answer threads are available only in Cue.');
   if (state.busy) return { ok: false, message: 'Wait for the current answer before starting a new thread.' };
-  responseThread.reset();
+  newChat();
   send('answer-thread:cleared', {});
   return { ok: true };
 });
@@ -1438,7 +1524,7 @@ ipcMain.handle('transcript:clear', () => {
   transcript.splice(0, transcript.length);
   liveTranscript.you = null;
   liveTranscript.them = null;
-  responseThread.reset();
+  newChat();
   send('answer-thread:cleared', {});
   resetSlidesSession();
   send('slides:update', { count: 0, last: null });
@@ -1731,6 +1817,13 @@ function launchApp() {
 
   whisperModelManager = new WhisperModelManager({ userDataPath: app.getPath('userData') });
 
+  chatStore = createChatStore({ directory: path.join(app.getPath('userData'), 'chats'),
+    onError: message => send('status', { message }) });
+  const restoredChat = chatStore.get();
+  if (restoredChat && store.getSettings().meetingModes?.items.some(m => m.id === restoredChat.modeId)) {
+    store.mutateMeetingModes('activate', { id: restoredChat.modeId });
+  }
+
   meetingStore = createMeetingStore({ file: path.join(app.getPath('userData'), 'meetings.json'), debounceMs: 1500 });
   meetingMemory = createMeetingMemory({
     store: meetingStore,
@@ -1869,7 +1962,8 @@ app.on('will-quit', () => {
   // Quitting mid-meeting is a pause, not an end: the meeting stays open on disk
   // so a relaunch within the resume window picks it back up (a stale one is
   // closed and its notes written at the next launch). Just get the bytes down.
-  if (meetingMemory) meetingMemory.flush();
+  try { meetingMemory?.flush(); } catch { console.error('[meetings] Could not save recording history before closing.'); }
+  try { chatStore?.flush(); } catch { console.error('[chats] Could not save the current answer before closing.'); }
   // Best effort, deliberately not blocking the quit: the library also removes
   // the instance file from a `process.on('exit')` handler, and a file left
   // behind is harmless anyway because readers check whether the PID is alive.

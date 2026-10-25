@@ -128,9 +128,9 @@ Use **What should I say?** for a short suggested reply. Use **Smart assist** whe
 
 Cue uses the latest question and the conversation leading up to it. Speech still being transcribed is treated as unfinished. A generated answer is a draft, not evidence that you said it aloud. Review suggestions before using them, especially names, numbers, personal claims, and technical details.
 
-Typed follow-ups share a small answer thread. After an explanation, you can ask “Make that shorter” or “Show a concrete example.” **New thread** clears generated answers and their follow-up context while keeping your live transcript. The thread stays in memory and holds up to six completed exchanges, within a text limit.
+Chat threads save locally and reopen after you quit Cue. **History → Chats** lets you name, rename, continue, or delete a conversation. **New chat** saves the current thread and starts fresh while keeping your live transcript. Long prompts preserve code spacing and have **Show more** and **Copy** controls.
 
-Switching the active meeting mode or changing its context starts fresh answer context. Clearing the transcript also clears the thread. Recaps are kept separate from typed follow-ups. [Read more about response context](docs/response-generation.md).
+Each chat has editable **Memory**: explicit preferences such as “I prefer recursive DP” guide later answers in that thread. Newer preferences replace older ones; you can edit or forget them. Automatic preferences expire after 90 days. Cue sends a bounded selection of history, targeting at most **1.9× estimated fresh text input**, with no more than **1,800 added tokens**. This is not a fixed dollar-cost guarantee; model output, reasoning and pricing still vary. Memory updates make no extra AI calls. [Response and memory details](docs/response-generation.md).
 
 ### Keep notes and revisit sessions
 
@@ -138,9 +138,9 @@ Transcription keeps **You** and **Them** separate. The live meter says **Call** 
 
 Cue saves transcript turns locally as they arrive. A recent interrupted meeting can be restored after relaunch within 30 minutes. Saving reduces the risk of losing a discussion, but a crash before pending writes finish can still lose the latest changes.
 
-After listening stops, Cue can use your chat model to write a summary, key points, decisions, action items, and follow-up questions. Recent meeting summaries may become background for later answers. The current conversation takes priority. This notes step sends the needed transcript to your selected chat provider, including when speech recognition itself was local.
+After listening stops, Cue can use your chat model to write a summary, key points, decisions, action items, and follow-up questions. Recording notes stay separate from chat-thread memory. The current conversation takes priority. This notes step sends the needed transcript to your selected chat provider, including when speech recognition itself was local.
 
-Open **Sessions** from the toolbar’s history icon or the menu to review saved meetings. Cue keeps the newest 50 meetings. These saved sessions are different from the temporary **New thread** answer context.
+Open **History → Recordings** to review or rename saved meetings. Use **⋯ → Delete** to move a chat or recording to recoverable **Trash**. Existing recordings are preserved; new ones no longer prune older sessions automatically.
 
 ## Make it fit your work
 

@@ -19,7 +19,7 @@ const NOTES_SYSTEM =
 const DEFAULTS = {
   resumeWindowMs: 30 * 60 * 1000, // an open meeting whose last turn is older than this is treated as over
   minTurnsForNotes: 4,             // fewer than this is a false start, not a meeting worth notes
-  maxMeetings: 50,                 // kept on disk; oldest are pruned
+  maxMeetings: Infinity,           // keep local history until the user removes it
   memoryCount: 3                   // summaries offered to prompts
 };
 
@@ -45,7 +45,7 @@ function createMeetingMemory(opts) {
   // Write notes for a meeting with the LLM. Resolves to the parsed notes, or
   // null when there is nothing to do (too short, no usable provider, failure).
   async function writeNotes(m) {
-    if (!m || m.transcript.length < cfg.minTurnsForNotes) return null;
+    if (!m || m.deletedAt || m.transcript.length < cfg.minTurnsForNotes) return null;
     const llm = llmFactory();
     if (!llm || !llm.ready) return null;
     try {
@@ -56,7 +56,9 @@ function createMeetingMemory(opts) {
       });
       const notes = parseNotes(text);
       if (!notes.summary) return null;
-      store.update(m.id, { ...notes, title: titleFor(notes.summary, m.startedAt), notesAt: now(), notesTurns: m.transcript.length });
+      const latest = store.get(m.id);
+      if (!latest || latest.deletedAt) return null;
+      store.update(m.id, { ...notes, title: latest.customTitle ? latest.title : titleFor(notes.summary, m.startedAt), notesAt: now(), notesTurns: m.transcript.length });
       log(`notes written for meeting ${m.id} (${m.transcript.length} turns)`);
       return notes;
     } catch (e) {
@@ -72,7 +74,7 @@ function createMeetingMemory(opts) {
     // turn is recent enough to plausibly be the same conversation. Returns the
     // turns to restore into the live transcript ([] when nothing to resume).
     resumeOpen() {
-      const all = store.all();
+      const all = store.all().filter(m => !m.deletedAt);
       const last = all[all.length - 1];
       if (!last || last.endedAt) return [];
       if (now() - lastTurnTs(last) <= cfg.resumeWindowMs) {
@@ -125,7 +127,7 @@ function createMeetingMemory(opts) {
 
     // Launch-time catch-up: meetings that ended without notes (quit, crash).
     async catchUp() {
-      const pending = store.all().filter((m) => m.endedAt && !m.summary && m.transcript.length >= cfg.minTurnsForNotes);
+      const pending = store.all().filter((m) => !m.deletedAt && m.endedAt && !m.summary && m.transcript.length >= cfg.minTurnsForNotes);
       let written = 0;
       for (const m of pending) { if (await writeNotes(m)) written++; } // sequential: one provider call at a time
       return written;
@@ -142,6 +144,7 @@ function createMeetingMemory(opts) {
       return 'Previous meetings (for background only; the live transcript is what matters now):\n' + lines.join('\n');
     },
 
+    forget(id) { if (current?.id === id) { current = null; notesTurnCount = 0; } },
     flush() { store.flush(); }
   };
 }
