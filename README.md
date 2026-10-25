@@ -44,7 +44,7 @@ The clips below are illustrations from the launch film. App screenshots use samp
 
 ### Download for Mac
 
-Open the [installation guide](https://cue.dumpydon.workers.dev/install/) or [GitHub Releases](https://github.com/dumpydon/cue/releases). Choose the ZIP for your Mac:
+Open the [installation guide](https://cue.dumpydon.workers.dev/install/) or [Cue 0.4.16 on GitHub](https://github.com/dumpydon/cue/releases/tag/v0.4.16-preview.1). Choose the ZIP for your Mac:
 
 - **Apple silicon:** choose the file ending in `mac-arm64.zip`.
 - **Intel:** choose the file ending in `mac-x64.zip`.
