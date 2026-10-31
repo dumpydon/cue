@@ -12,7 +12,7 @@ test('the film range metadata matches the exact published movie', async () => {
 });
 test('public navigation and media references resolve to built local files',async()=>{
   const publicRoot=path.resolve(site,'../dist/site');
-  for(const name of ['index.html','privacy/index.html','install/index.html','changelog/index.html','tour/index.html','first-launch/index.html','404.html']){
+  for(const name of ['index.html','privacy/index.html','license/index.html','install/index.html','changelog/index.html','tour/index.html','first-launch/index.html','404.html']){
     const html=await fs.readFile(path.join(publicRoot,name),'utf8');
     for(const [,reference] of html.matchAll(/(?:src|href)="(\/[^"?#]*)"/g)){
       if(reference==='/release.json'||reference.startsWith('/get/'))continue;

@@ -83,6 +83,9 @@ export async function build({ sourceCheck = false } = {}) {
   const assetRevision = await versionAssets(output);
   const snippets = {};
   for (const [name, file] of Object.entries({ SITE_NAV: 'nav', SITE_FOOTER: 'footer', DOWNLOAD_MENU: 'download-menu', FILM_PLAYER: 'film-player', DESKTOP_DEMO: 'desktop-demo', PRICING: 'pricing' })) snippets[name] = await readFile(path.join(here, 'components', file + '.html'), 'utf8');
+  const license = await readFile(path.resolve(here, '../LICENSE'), 'utf8');
+  snippets.CUE_LICENSE = escapeHTML(license);
+  await writeFile(path.join(output, 'license.txt'), license);
   const film = JSON.parse(await readFile(path.join(here, 'film.json'), 'utf8'));
   const poster = await readFile(path.join(here, 'public/media/cue-launch-poster.jpg'));
   const mediaVersions = { '/media/cue-launch.mp4': film.sha256.slice(0, 12), '/media/cue-launch.vtt': film.sha256.slice(0, 12), '/media/cue-launch-poster.jpg': createHash('sha256').update(poster).digest('hex').slice(0, 12) };
