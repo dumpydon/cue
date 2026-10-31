@@ -80,6 +80,7 @@ const DEFAULTS = {
   opacity: 1,
   // Current run's choice; main resets it to true before constructing windows.
   screenShareProtection: true,
+  followAllWorkspaces: false,
   // Slides: opt-in auto slide tracking (memory-only, forwarded, never written to disk).
   slides: {
     enabled: false,
@@ -138,7 +139,7 @@ function clampOpacity(value) {
 
 // The renderer saves an entire settings snapshot. It must not replace newer
 // bounds recorded by a drag/resize while that snapshot was open.
-const RENDERER_READ_ONLY = ['publik', 'windowX', 'windowY', 'windowWidth', 'windowHeight', 'screenShareProtection', 'modelPreferences', 'macRegistrationVersion', 'meetingModes'];
+const RENDERER_READ_ONLY = ['publik', 'windowX', 'windowY', 'windowWidth', 'windowHeight', 'screenShareProtection', 'followAllWorkspaces', 'modelPreferences', 'macRegistrationVersion', 'meetingModes'];
 
 let data = null;
 let lastError = null;

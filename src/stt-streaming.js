@@ -8,6 +8,15 @@
 const { looksLikeHallucination, transcribeGemini, buildVocabPrompt } = require('./stt');
 const { GEMINI_TRANSCRIBE_LIVE_MODEL } = require('./llm');
 const { AdaptiveVAD } = require('./vad');
+const MAX_SOCKET_AUDIO_BACKLOG = 1024 * 1024;
+function socketCanTakeAudio(instance, provider) {
+  if (!(instance.ws?.bufferedAmount > MAX_SOCKET_AUDIO_BACKLOG)) { instance._audioBacklogReported = false; return true; }
+  if (!instance._audioBacklogReported) {
+    instance._audioBacklogReported = true;
+    instance.onError({ provider, code: 'STT_BACKPRESSURE', message: 'The speech connection is too slow to keep up with live audio.', status: null });
+  }
+  return false;
+}
 
 // ============================================================================
 // OpenAI Realtime Transcription Session (WebSocket)
@@ -153,7 +162,16 @@ class OpenAIRealtimeSTT {
         break;
 
       case 'conversation.item.input_audio_transcription.failed':
-        this.onError({ provider: 'openai-realtime', message: event.error?.message || 'Speech transcription failed', status: event.error?.code });
+        if (this._finished.has(event.item_id)) break;
+        {
+          const item = this._item(event.item_id);
+          item.done = true; item.text = '';
+          this._pendingCommits = Math.max(0, this._pendingCommits - 1);
+          this._drainCompleted(); this._armTextCommit();
+          const code = event.error?.code;
+          this.onError({ provider: 'openai-realtime', message: event.error?.message || 'One speech segment could not be transcribed.',
+            status: code, code, recoverable: !/authentication|invalid_api_key|permission|quota|rate_limit/i.test(code || '') });
+        }
         break;
 
       case 'input_audio_buffer.speech_started':
@@ -289,7 +307,9 @@ class OpenAIRealtimeSTT {
 
   _sendEvent(event) {
     if (this.ws && this.ws.readyState === 1) { // WebSocket.OPEN
-      this.ws.send(JSON.stringify(event));
+      if (event.type === 'input_audio_buffer.append' && !socketCanTakeAudio(this, 'openai-realtime')) return;
+      try { this.ws.send(JSON.stringify(event)); }
+      catch (error) { this.onError({ provider: 'openai-realtime', message: error.message, status: null }); }
     }
   }
 
@@ -460,7 +480,9 @@ class DeepgramStreamingSTT {
 
   sendAudio(pcmBuffer) {
     if (this.ws && this.ws.readyState === 1) {
-      this.ws.send(Buffer.from(pcmBuffer));
+      if (!socketCanTakeAudio(this, 'deepgram')) return;
+      try { this.ws.send(Buffer.from(pcmBuffer)); }
+      catch (error) { this.onError({ provider: 'deepgram', message: error.message, status: null }); }
     }
   }
 

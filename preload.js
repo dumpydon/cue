@@ -21,7 +21,11 @@ contextBridge.exposeInMainWorld('cue', {
   platformInfo: () => ipcRenderer.invoke('platform:info'),
   protectionGet: () => ipcRenderer.invoke('protection:get'),
   protectionSet: (enabled) => ipcRenderer.invoke('protection:set', enabled),
-  ask: (payload) => ipcRenderer.send('ask', payload),
+  workspaceGet: () => ipcRenderer.invoke('workspace:get'),
+  workspaceSet: followAll => ipcRenderer.invoke('workspace:set', followAll),
+  ask: payload => ipcRenderer.invoke('answer:ask', payload),
+  answerState: () => ipcRenderer.invoke('answer:state'),
+  cancelAnswer: requestId => ipcRenderer.invoke('answer:cancel', requestId),
   captureToggle: () => ipcRenderer.invoke('capture:toggle').catch((err) => {
     console.error('[cue] captureToggle error', err);
     return false;
@@ -40,6 +44,7 @@ contextBridge.exposeInMainWorld('cue', {
   sessionGet: id => ipcRenderer.invoke('sessions:get', id),
   sessionMutate: (action, id, title) => ipcRenderer.invoke('sessions:mutate', action, id, title),
   chatsState: () => ipcRenderer.invoke('chats:state'),
+  chatSummary: () => ipcRenderer.invoke('chats:summary'),
   chatsList: options => ipcRenderer.invoke('chats:list', options),
   chatGet: (id, before) => ipcRenderer.invoke('chats:get', id, before),
   chatMutate: (action, id, payload) => ipcRenderer.invoke('chats:mutate', action, id, payload),
@@ -72,7 +77,7 @@ contextBridge.exposeInMainWorld('cue', {
   log: (msg) => ipcRenderer.send('log', msg),
   on: (channel, cb) => {
     const allowed = ['capture:state', 'llm:start', 'llm:token', 'llm:done', 'llm:error', 'status', 'transcript', 'transcript:restore', 'stt:interim', 'stt:final', 'stt:status', 'vad:state', 'applink:consent-request', 'hide:toggle', 'whisper:download-progress', 'whisper:models-changed', 'publik:state', 'slides:update'];
-    if (!['permissions:changed', 'protection:changed', 'window:zoom-changed', 'ui:reveal', 'ui:open-settings', 'ui:open-sessions', 'models:changed', 'modes:changed', 'answer-thread:cleared', 'chats:active', 'chats:meta', 'chats:changed', 'transcript:removed'].includes(channel) && !allowed.includes(channel)) return;
+    if (!['permissions:changed', 'protection:changed', 'workspace:changed', 'window:zoom-changed', 'ui:reveal', 'ui:open-settings', 'ui:open-sessions', 'models:changed', 'modes:changed', 'answer-thread:cleared', 'chats:active', 'chats:meta', 'chats:changed', 'transcript:removed', 'answer:state'].includes(channel) && !allowed.includes(channel)) return;
     ipcRenderer.on(channel, (_e, data) => cb(data));
   }
 });

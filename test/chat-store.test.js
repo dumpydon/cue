@@ -5,6 +5,22 @@ const { createChatStore } = require('../src/chat-store');
 function setup(t) { const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cue-chat-test-')); t.after(()=>fs.rmSync(directory,{recursive:true,force:true})); let tick=1000; return { directory, now:()=>++tick }; }
 function ask(store,user='Explain binary search?') { const ref=store.begin({user,mode:'ask',scope:'general',category:'technical'}); store.append(ref,'Use sorted input.'); store.finish(ref,{answer:'Use sorted input.\n\n```python\n    return low\n```'}); return ref; }
 
+test('pinned chats stay above newer chats, survive restart and trash restoration, and preserve context', t=>{
+ const cfg=setup(t),store=createChatStore(cfg),old=store.create();ask(store);
+ const before=store.context(old.id);store.pin(old.id,true);
+ const newer=store.create();ask(store,'New question');
+ assert.deepEqual(store.list().map(c=>c.id),[old.id,newer.id]);
+ assert.ok(store.list()[0].pinnedAt);assert.equal(store.list()[1].pinnedAt,null);
+ assert.deepEqual(store.context(old.id),before);
+ const reload=createChatStore(cfg);assert.equal(reload.list()[0].id,old.id);
+ reload.trash(old.id);assert.equal(reload.list()[0].id,newer.id);assert.ok(reload.list({trash:true})[0].pinnedAt);
+ reload.restore(old.id);assert.equal(reload.list()[0].id,old.id);
+ reload.pin(old.id,false);assert.equal(createChatStore(cfg).metadata(old.id).pinnedAt,null);
+ assert.throws(()=>reload.pin(old.id,'yes'),/pin/);
+ const latest=reload.get(old.id);fs.mkdirSync(path.join(cfg.directory,old.id+'.json.tmp'));
+ assert.throws(()=>reload.pin(old.id,true));assert.deepEqual(reload.get(old.id),latest);
+});
+
 test('independent local chats survive restart, preserve exact text, auto-title and rename', t=>{
  const cfg=setup(t), store=createChatStore(cfg); const first=store.create('general','general');
  ask(store,'  Explain binary search?\n\t  Preserve spaces.  '); store.rename(first.id,'LeetCode');
@@ -66,4 +82,24 @@ test('a mixed preference and question retains the question for follow-ups withou
  const exchange=store.get().exchanges[0];
  assert.equal(exchange.preferenceUpdate,false); assert.equal(exchange.contextUser,'Solve coin change?');
  assert.match(exchange.user,/recursive DP/); assert.equal(store.get().memories.length,1);
+});
+
+test('metadata and paged history do not copy the whole archive into UI updates',t=>{
+ const cfg=setup(t),store=createChatStore(cfg);store.create();for(let i=0;i<40;i++)ask(store,'Question '+i);
+ const metadata=store.metadata();assert.equal(metadata.total,40);assert.equal(metadata.exchanges,undefined);
+ const page=store.page();page.exchanges[0].assistant='Changed';assert.notEqual(store.get().exchanges[10].assistant,'Changed');
+ const context=store.context();assert.equal(Object.isFrozen(context.exchanges[0]),true);assert.equal(context.exchanges.length,40);
+});
+
+test('context switch persists over ten days without deleting history or learning disabled preferences',t=>{
+ const cfg=setup(t),store=createChatStore(cfg),chat=store.create();ask(store,'Solve coin change?');
+ store.setContextEnabled(chat.id,false);ask(store,'I prefer Python.');
+ assert.equal(store.get().memories.length,0);
+ const reload=createChatStore({...cfg,now:()=>10*24*60*60*1000});
+ assert.equal(reload.metadata().contextEnabled,false);assert.equal(reload.context().contextEnabled,false);
+ assert.equal(reload.page().exchanges.length,2);reload.activate(chat.id);
+ reload.setContextEnabled(chat.id,true);assert.equal(reload.page().contextEnabled,true);
+ assert.throws(()=>reload.setContextEnabled(chat.id,'yes'),/context/);
+ const file=path.join(cfg.directory,chat.id+'.json');const old=JSON.parse(fs.readFileSync(file));delete old.contextEnabled;fs.writeFileSync(file,JSON.stringify(old));
+ assert.equal(createChatStore(cfg).metadata().contextEnabled,true,'old chats keep their previous recall behavior');
 });

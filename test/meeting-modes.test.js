@@ -27,6 +27,21 @@ test('reordering keeps the same active mode and rejects stale or incomplete list
   assert.throws(() => modes.mutate(reordered, 'reorder', { ids: ids.map(() => ids[0]) }), /list changed/);
 });
 
+test('64,000-character meeting context survives persistence and reaches every answer action intact', () => {
+  const end = '\nMODE_CONTEXT_END_SENTINEL';
+  const context = 'Long reference material. '.repeat(3000).slice(0, 64000 - end.length) + end;
+  let state = modes.mutate(modes.defaults(), 'update', { id: 'interview', title: 'Long interview context', context, expectedRevision: 0 });
+  state = modes.normalize(JSON.parse(JSON.stringify(state)));
+  assert.equal(state.items.find(mode => mode.id === 'interview').context, context);
+  assert.equal(modes.view(state).limits.context, 64000);
+  assert.throws(() => modes.mutate(state, 'update', { id: 'interview', title: 'Too long', context: context + 'x', expectedRevision: 1 }), /64,000 characters/);
+  state = modes.mutate(state, 'activate', { id: 'interview' });
+  for (const [name, action] of Object.entries(MODES)) {
+    const prompt = modes.appendModeContext(action.buildSystem(null, ''), state);
+    assert.ok(prompt.includes(context), name + ': the complete context must reach the provider prompt');
+  }
+});
+
 test('custom modes, duplicates, deletion and persistent undo retain context and attached references', () => {
   let state = modes.mutate(modes.defaults(), 'add-files', { id: 'interview', files: [{ id: 'file-a', name: 'resume.txt', text: 'Built a garden app.', originalCharacters: 19, digest: 'abc' }] });
   state = modes.mutate(state, 'duplicate', { id: 'interview' });

@@ -44,7 +44,7 @@ The clips below are illustrations from the launch film. App screenshots use samp
 
 ### Download for Mac
 
-Open the [installation guide](https://cue.dumpydon.workers.dev/install/) or [Cue 0.4.16 on GitHub](https://github.com/dumpydon/cue/releases/tag/v0.4.16-preview.1). Choose the ZIP for your Mac:
+Open the [installation guide](https://cue.dumpydon.workers.dev/install/) or [Cue 0.4.17 on GitHub](https://github.com/dumpydon/cue/releases/tag/v0.4.17-preview.1). Choose the ZIP for your Mac:
 
 - **Apple silicon:** choose the file ending in `mac-arm64.zip`.
 - **Intel:** choose the file ending in `mac-x64.zip`.
@@ -131,6 +131,15 @@ Cue uses the latest question and the conversation leading up to it. Speech still
 Chat threads save locally and reopen after you quit Cue. **History → Chats** lets you name, rename, continue, or delete a conversation. **New chat** saves the current thread and starts fresh while keeping your live transcript. Long prompts preserve code spacing and have **Show more** and **Copy** controls.
 
 Each chat has editable **Memory**: explicit preferences such as “I prefer recursive DP” guide later answers in that thread. Newer preferences replace older ones; you can edit or forget them. Automatic preferences expire after 90 days. Cue sends a bounded selection of history, targeting at most **1.9× estimated fresh text input**, with no more than **1,800 added tokens**. This is not a fixed dollar-cost guarantee; model output, reasoning and pricing still vary. Memory updates make no extra AI calls. [Response and memory details](docs/response-generation.md).
+
+While Cue answers, **Stop** preserves the partial response and your next draft.
+Screen capture and provider requests have deadlines, and audio queues are bounded.
+An isolated answer-window crash can restore the chat with capture paused.
+[Reliability behavior and limits](docs/answer-reliability.md).
+
+The **pin button** beside Opacity switches between **This desktop** and **All
+desktops**. Cue stays in its current macOS Space by default, so it does not follow
+you when you swipe to a different desktop or full-screen Chrome. Your choice is saved.
 
 ### Keep notes and revisit sessions
 

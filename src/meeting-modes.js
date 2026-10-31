@@ -2,7 +2,7 @@
 // Smart assist) and the Fast / Smart model tier.
 const { randomUUID } = require('node:crypto');
 
-const LIMITS = Object.freeze({ modes: 40, title: 100, context: 32000, files: 10, fileText: 40000, totalFileText: 100000, fileBytes: 5 * 1024 * 1024 });
+const LIMITS = Object.freeze({ modes: 40, title: 100, context: 64000, files: 10, fileText: 40000, totalFileText: 100000, fileBytes: 5 * 1024 * 1024 });
 const ICONS = ['file-text', 'graduation-cap', 'messages-square', 'code-2', 'cpu', 'presentation', 'clipboard-check', 'store', 'briefcase', 'video', 'book-open'];
 const PRESETS = [
   ['general', 'General', 'file-text', 'Help me with the current conversation or task. Give direct, useful answers, adapt to the context, and ask a short clarification when needed. Use the supplied facts and files. Do not invent personal experience, commitments, or facts that are not supported by the available context.'],

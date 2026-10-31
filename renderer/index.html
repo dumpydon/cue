@@ -7,6 +7,7 @@
   <link rel="icon" href="assets/cue-icon.png" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="meeting-modes.css" />
+  <link rel="stylesheet" href="chat-sidebar.css" />
   <link rel="stylesheet" href="vendor/answers/katex.min.css" />
   <link rel="stylesheet" href="answer-format.css" />
   <link rel="stylesheet" href="audio-activity.css" />
@@ -31,7 +32,7 @@
       <div class="tb-divider"></div>
       <div class="tb-opacity-wrap">
         <button class="tb-opacity" id="opacity-btn" title="Opacity" aria-label="Opacity" aria-expanded="false">
-          <span class="ic"></span>
+          <span class="ic toolbar-opacity-glyph" aria-hidden="true"></span>
         </button>
         <div id="opacity-popover" class="opacity-popover hidden">
           <div class="opacity-label">Opacity</div>
@@ -41,6 +42,7 @@
           </div>
         </div>
       </div>
+      <button type="button" class="tb-workspace on" id="workspace-btn" title="Keep Cue on this desktop" aria-label="This desktop: Cue stays in this Space" aria-pressed="true" hidden></button>
       <div class="tb-divider"></div>
       <button class="tb-permissions hidden" id="permissions-btn" title="Review microphone and screen access" aria-label="Review capture permissions"><span class="ic"></span><span>Permissions</span></button>
       <button class="tb-quit" id="quit-btn" title="Quit cue" aria-label="Quit cue"></button>
@@ -68,6 +70,7 @@
       <div id="panel" class="glass no-drag">
 
             <div id="answer-thread-bar">
+              <button id="chat-sidebar-toggle" type="button" aria-label="Open chat sidebar" title="Open chat sidebar" aria-expanded="false" aria-controls="chat-sidebar"><span class="library-glyph sidebar-glyph" aria-hidden="true"></span></button>
               <div id="stt-status" class="stt-status stt-disconnected">Transcription off</div>
               <div id="audio-activity" role="group" aria-label="Live audio inputs">
                 <span class="audio-source" data-audio-channel="you" role="img" aria-label="Your microphone: Session off">
@@ -84,12 +87,24 @@
 
         <!-- Two-column layout: responses (left) + live transcript sidebar (right) -->
         <div id="panel-columns">
+          <button id="chat-sidebar-backdrop" type="button" aria-label="Close chat sidebar" hidden></button>
+          <aside id="chat-sidebar" aria-label="Chat library" data-no-window-drag hidden>
+            <div class="library-heading"><strong>Library</strong><button id="chat-sidebar-close" class="library-icon-button" type="button" title="Collapse sidebar" aria-label="Collapse sidebar"><span class="library-glyph sidebar-glyph" aria-hidden="true"></span></button></div>
+            <button id="sidebar-new-chat" type="button"><span class="library-glyph compose-glyph" aria-hidden="true"></span><span>New chat</span></button>
+            <nav id="sidebar-tabs" aria-label="Library categories"><button type="button" data-library-tab="chats" aria-pressed="true">Chats</button><button type="button" data-library-tab="recordings" aria-pressed="false">Recordings</button><button type="button" data-library-tab="trash" aria-pressed="false">Trash</button></nav>
+            <input id="sidebar-search" type="search" aria-label="Search library" placeholder="Search chats" maxlength="160" autocomplete="off" />
+            <p id="sidebar-notice" role="status" hidden></p>
+            <div id="sidebar-list" tabindex="0" aria-label="Saved items"></div>
+            <div class="library-footer">Saved on this Mac</div>
+          </aside>
+          <section id="library-detail" aria-label="Saved recording" data-no-window-drag hidden></section>
 
           <!-- Left column: AI responses -->
           <div id="panel-main">
             <div id="chat-strip">
               <button type="button" id="chat-title" title="Open this chat in History">New chat</button>
               <button type="button" id="chat-memory" title="View this chat’s memory and context budget">Memory</button>
+              <button type="button" id="chat-context-toggle" aria-pressed="true" title="Use this chat’s previous messages and preferences">Context on</button>
             </div>
             <div id="answer-feed">
               <div id="messages" tabindex="0" aria-label="AI responses"></div>
@@ -113,6 +128,7 @@
             </div>
 
             <div id="composer">
+              <div id="message-edit-banner" hidden><span>Editing a copy · original stays saved</span><button id="message-edit-cancel" type="button">Cancel</button></div>
               <div id="input-area">
                 <div id="placeholder">Ask about your screen or conversation, or <span class="keycap">⌘</span><span class="keycap">⇧</span><span class="keycap">⏎</span> for Smart assist</div>
                 <textarea id="input" rows="1" spellcheck="false"></textarea>
@@ -192,7 +208,7 @@
             </div>
           </div>
           <label for="mode-context" class="mode-label">Meeting context</label>
-          <textarea id="mode-context" rows="9" maxlength="32000" placeholder="Tell Cue what this meeting is about, or leave it blank for general help."></textarea>
+          <textarea id="mode-context" rows="9" maxlength="64000" placeholder="Tell Cue what this meeting is about, or leave it blank for general help." aria-describedby="mode-character-count"></textarea>
           <div class="mode-context-meta"><span>Changes save automatically.</span><span id="mode-character-count"></span></div>
           <div class="mode-files-heading"><h3>Files</h3><span id="mode-file-count"></span></div>
           <div id="mode-file-list"></div>
@@ -446,10 +462,12 @@
   <script src="icons.js"></script>
   <script src="vendor/answers/answer-format.js"></script>
   <script src="protection-toggle.js"></script>
+  <script src="workspace-toggle.js"></script>
   <script src="window-interactions.js"></script>
   <script src="window-zoom.js"></script>
   <script src="shortcut-context.js"></script>
   <script src="session-history.js"></script>
+  <script src="chat-sidebar.js"></script>
   <script src="../src/model-preferences.js"></script>
   <script src="model-picker.js"></script>
   <script src="meeting-modes.js"></script>

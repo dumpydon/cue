@@ -17,6 +17,8 @@ desktopCapturer.getSources = () => { throw new Error('No desktop capture allowed
 require('../src/screen').captureScreenshot = async () => 'data:image/png;base64,c3ludGhldGlj';
 require('../src/model-catalog').createModelCatalog = () => ({ get: async () => ({ models: [], live: false, message: '' }) });
 const requests = [];
+const contextEnd = '\nSYNTHETIC_CONTEXT_END_AFTER_32000';
+const largeContext = 'SYNTHETIC_ACTIVE_CONTEXT: Speak about the garden app.\n'.repeat(1400).slice(0, 64000 - contextEnd.length) + contextEnd;
 require('../src/llm').createLLM = settings => ({ ready: true, model: settings.models.openai[settings.smart ? 'smart' : 'fast'], provider: 'openai',
   async stream(request) { requests.push({ system: request.system, model: this.model }); request.onToken?.('Synthetic answer.'); return 'Synthetic answer.'; } });
 dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [documentPath] });
@@ -46,15 +48,19 @@ app.on('browser-window-created', (_event, win) => {
         const b = win.getBounds(), image = await wc.capturePage({ x: 300, y: 0, width: b.width - 600, height: b.height });
         fs.writeFileSync(path.join(dir, name + '.png'), image.toPNG());
       }
-      await until(() => js('!!window.CueMeetingModeUI && !!document.querySelector("#messages .ai-text")'), 'renderer initialization');
+      await until(() => js('!!window.CueMeetingModeUI && !!document.querySelector("#new-answer-thread")'), 'renderer initialization');
       await js('window.CueMeetingModeUI.ready');
       assert.equal(await js('window.cue.settingsGet().then(s=>Object.values(s.apiKeys).every(key=>!key))'), true);
       win.setBounds(geometry.restoreBounds({ windowWidth: 820, windowHeight: 780 }, screen.getPrimaryDisplay().workArea)); await pause(80);
       await js('window.CueMeetingModeUI.open()');
       assert.equal(await js('document.querySelectorAll(".mode-row").length'), 11);
       await click(mode('interview'));
-      await field('#mode-title', 'InterviewA1'); await field('#mode-context', 'SYNTHETIC_ACTIVE_CONTEXT: Speak about the garden app.');
+      assert.equal(await js('document.querySelector("#mode-context").maxLength'), 64000);
+      await field('#mode-title', 'InterviewA1'); await field('#mode-context', largeContext);
       await until(() => read().items.find(mode => mode.id === 'interview').title === 'InterviewA1', 'automatic title save');
+      assert.equal(read().items.find(mode => mode.id === 'interview').context, largeContext, 'autosave retains the full 64,000 characters');
+      assert.match(await js('document.querySelector("#mode-character-count").textContent'), /64,000 \/ 64,000 characters/);
+      assert.equal(await js(`window.cue.meetingModesMutate('update', {id:'interview', title:'InterviewA1', context:${JSON.stringify(largeContext + 'x')}, expectedRevision:1}).then(()=>false,error=>error.message.includes('64,000 characters'))`), true, 'the main process rejects over-limit IPC input');
       assert.equal(read().activeId, 'general', 'editing is separate from activation');
       await click('#mode-activate'); await until(() => read().activeId === 'interview', 'Set Active');
       await until(() => js('!document.querySelector(".mode-row[data-id=\\"interview\\"] .mode-order-controls button").disabled'), 'reorder arrows re-enable after activation');
@@ -98,6 +104,7 @@ app.on('browser-window-created', (_event, win) => {
         await js('window.cue.ask({mode:' + JSON.stringify(action) + ',text:"Synthetic action check"})');
         await until(() => requests.length > count, 'context in ' + action);
         for (const text of ['SYNTHETIC_ACTIVE_CONTEXT', 'SYNTHETIC_ROLE_FILE', 'SYNTHETIC_DROP_FILE']) assert.ok(requests.at(-1).system.includes(text), action + ': ' + text);
+        assert.ok(requests.at(-1).system.includes(largeContext), action + ': no truncation at the previous 32,000-character limit');
       }
       await pause(50); await js('window.cue.settingsSet({smart:true})');
       const count = requests.length; await js('window.cue.ask({mode:"ask",text:"Smart tier routing"})');
@@ -147,10 +154,10 @@ app.on('browser-window-created', (_event, win) => {
       await click('#modes-done');
       const persisted = read(); assert.equal(persisted.activeId, 'system-design'); assert.equal(persisted.items.find(mode => mode.id === 'interview').files.length, 2);
       await js('window.CueMeetingModeUI.open()'); await click(mode(customId));
-      await field('#mode-context', 'SYNTHETIC_QUIT_SAVED_CONTEXT');
+      await field('#mode-context', largeContext);
       app.once('will-quit', () => {
-        assert.equal(read().items.find(mode => mode.id === customId).context, 'SYNTHETIC_QUIT_SAVED_CONTEXT', 'quitting flushes a pending autosave');
-        console.log('PASS: modes, autosave/retry/quit, activation, drag/keyboard ordering, real file picker/drop, mode-scoped prompts in every action, tier routing, reload, safe titles and compact layout.');
+        assert.equal(read().items.find(mode => mode.id === customId).context, largeContext, 'quitting flushes all 64,000 characters of a pending autosave');
+        console.log('PASS: 64,000-character context, over-limit IPC rejection, full-context prompt routing, autosave/retry/quit, activation, drag/keyboard ordering, real file picker/drop, tier routing, reload, safe titles and compact layout.');
       });
       clearTimeout(timeout);
       app.quit();

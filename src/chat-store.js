@@ -32,6 +32,7 @@ function createChatStore({ directory, now = Date.now, onError = () => {} }) {
   function summary(chat) {
     return { id: chat.id, title: chat.title, modeId: chat.modeId, createdAt: chat.createdAt, updatedAt: chat.updatedAt,
       deletedAt: chat.deletedAt || null, count: chat.exchanges.length, preview: chat.exchanges.at(-1)?.user.slice(0, 180) || '',
+      pinnedAt: Number.isFinite(chat.pinnedAt) ? chat.pinnedAt : null, contextEnabled: chat.contextEnabled !== false,
       memoryCount: activeMemories(chat.memories, now()).length, active: chat.id === activeId };
   }
   function read(id) {
@@ -85,21 +86,35 @@ function createChatStore({ directory, now = Date.now, onError = () => {} }) {
     list({ trash = false, query = '' } = {}) {
       const needle = String(query).toLowerCase().slice(0, 160);
       return [...summaries.values()].filter(c => !!c.deletedAt === !!trash && (!needle || (c.title + ' ' + c.preview).toLowerCase().includes(needle)))
-        .sort((a,b) => b.updatedAt-a.updatedAt).map(c => ({ ...c, active: c.id === activeId }));
+        .sort((a,b) => Number(!!b.pinnedAt)-Number(!!a.pinnedAt) || (b.pinnedAt || 0)-(a.pinnedAt || 0) || b.updatedAt-a.updatedAt).map(c => ({ ...c, active: c.id === activeId }));
     },
     get(id = activeId) { return id ? clone(requireChat(id)) : null; },
+    metadata(id = activeId) {
+      if (!id) return null;
+      const chat = requireChat(id);
+      return { ...summary(chat), meetingId: chat.meetingId, instructions: chat.instructions, memoryEnabled: chat.memoryEnabled,
+        memories: clone(activeMemories(chat.memories, now())), total: chat.exchanges.length };
+    },
+    context(id = activeId) {
+      const chat = requireChat(id);
+      // Main-process inference reads immutable strings; do not deep-clone all
+      // old code answers just to select a small context window.
+      return { contextEnabled: chat.contextEnabled !== false, instructions: chat.instructions, memoryEnabled: chat.memoryEnabled, memories: clone(chat.memories),
+        exchanges: chat.exchanges.map(exchange => Object.freeze({ ...exchange })) };
+    },
     page(id = activeId, before) {
-      const chat = api.get(id); if (!chat) return null;
+      if (!id) return null;
+      const chat = requireChat(id);
       const end = Number.isInteger(before) ? Math.max(0, Math.min(before, chat.exchanges.length)) : chat.exchanges.length;
       const start = Math.max(0, end - 30);
       return { ...summary(chat), instructions: chat.instructions, memoryEnabled: chat.memoryEnabled,
-        memories: activeMemories(chat.memories, now()), exchanges: chat.exchanges.slice(start, end), offset: start, total: chat.exchanges.length };
+        memories: clone(activeMemories(chat.memories, now())), exchanges: clone(chat.exchanges.slice(start, end)), offset: start, total: chat.exchanges.length };
     },
     create(modeId = 'general', scope = '') {
       flush();
       const chat = { version: 1, id: randomUUID(), title: 'New chat', customTitle: false,
         createdAt: now(), updatedAt: now(), modeId, scope, meetingId: null,
-        instructions: '', memoryEnabled: true, memories: [], exchanges: [], deletedAt: null };
+        instructions: '', contextEnabled: true, memoryEnabled: true, memories: [], exchanges: [], deletedAt: null };
       write(chat); activeId = chat.id; saveIndex(); return api.page();
     },
     activate(id) { flush(); requireChat(id); activeId = id; saveIndex(); return api.page(); },
@@ -126,7 +141,7 @@ function createChatStore({ directory, now = Date.now, onError = () => {} }) {
           const contextUser = changed ? recallText(user) : user;
           chat.exchanges.at(-1).preferenceUpdate = changed && !contextUser;
           if (changed) chat.exchanges.at(-1).contextUser = contextUser;
-          if (chat.memoryEnabled) chat.memories = learned;
+          if (chat.memoryEnabled && chat.contextEnabled !== false) chat.memories = learned;
         }
       });
       return { chatId: activeId, exchangeId: id };
@@ -143,6 +158,16 @@ function createChatStore({ directory, now = Date.now, onError = () => {} }) {
         if (typeof answer === 'string') exchange.assistant = answer;
         exchange.status = status; exchange.error = String(error).slice(0, 600); exchange.budget = budget;
       });
+    },
+    setContextEnabled(id, enabled) {
+      if (typeof enabled !== 'boolean') throw Error('Choose whether chat context is on or off.');
+      mutate(id, chat => { chat.contextEnabled = enabled; });
+      return api.metadata(id);
+    },
+    pin(id, pinned) {
+      if (typeof pinned !== 'boolean') throw Error('Choose whether to pin this chat.');
+      mutate(id, chat => { chat.pinnedAt = pinned ? now() : null; });
+      return api.metadata(id);
     },
     setMemory(id, { instructions, memoryEnabled, memories }) {
       if (typeof instructions !== 'string' || instructions.length > 1500 || typeof memoryEnabled !== 'boolean' || !Array.isArray(memories) || memories.length > MAX_MEMORIES) throw Error('Invalid chat memory settings.');

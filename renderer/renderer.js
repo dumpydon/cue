@@ -8,6 +8,8 @@
   let captureActive = false;
   const audioActivity = window.CueAudioActivity.install({ element: $('#audio-activity'), icon });
   const shortcutContext = window.CueShortcutContext.install({ cue });
+  const workspaceUI = window.CueWorkspaceToggle.install({ button: $('#workspace-btn'), cue, icon,
+    onError: message => showStatus(message) });
   window.CueAnswerFormat.installCopy({ document, copyText: text => cue.copyAnswerText(text),
     onError: message => showStatus(message) });
 
@@ -63,7 +65,6 @@
     onError: message => showStatus(message)
   });
   $('.tb-hide .chev').innerHTML = icon('chevron-down', { size: 14 });
-  $('#opacity-btn .ic').innerHTML = icon('eclipse', { size: 14 });
   $('#quit-btn').innerHTML = icon('x', { size: 14 });
   $('#permissions-btn .ic').innerHTML = icon('monitor', { size: 13 });
   $('#permissions-btn').addEventListener('click', () => cue.permissionsShow());
@@ -105,15 +106,21 @@
   let publikState = null;
   let whisperOverview = null;
   let busy = false;
+  let answerRequestId = null, pendingSubmission = null;
   let aiEl = null;       // current streaming <div class="ai-text">
   let caretEl = null;
   let responseCount = 0;
   const MAX_RESPONSES = 60;
   let activeChat = null, chatRevision = 0, earlierOffset = 0;
+  let messageEdit = null;
+  // Unsent text follows its chat while switching; it is never added to model
+  // context or persisted as a sent message. Discarded on application exit.
+  const chatDrafts = new Map();
 
   const messages = $('#messages');
   const userMessages = window.CueUserMessages.install({ container: messages,
-    copyText: text => cue.copyAnswerText(text), onError: message => showStatus(message) });
+    copyText: text => cue.copyAnswerText(text), onEdit: text => editSentMessage(text), canEdit: () => !busy,
+    onError: message => showStatus(message) });
   const latestAnswer = $('#latest-answer');
   const nearLatestAnswer = () => messages.scrollHeight - messages.scrollTop - messages.clientHeight < 72;
   const updateLatestAnswer = () => { latestAnswer.hidden = nearLatestAnswer(); };
@@ -131,7 +138,7 @@
     const follow = nearLatestAnswer();
     const offsets = [...element.querySelectorAll('.answer-code pre, .answer-math-display')].map(node => node.scrollLeft);
     const wraps = [...element.querySelectorAll('.answer-code')].map(node => node.classList.contains('wrapped'));
-    element.innerHTML = window.CueAnswerFormat.render(element.dataset.raw || '');
+    element.innerHTML = window.CueAnswerFormat.render(element.dataset.raw || '', { streaming });
     element.setAttribute('aria-busy', String(streaming));
     [...element.querySelectorAll('.answer-code')].forEach((node, index) => window.CueAnswerFormat.setCodeWrap(node, !!wraps[index]));
     [...element.querySelectorAll('.answer-code pre, .answer-math-display')].forEach((node, index) => { node.scrollLeft = offsets[index] || 0; });
@@ -174,7 +181,25 @@
     $('#chat-title').textContent = chat?.title || 'New chat';
     $('#chat-memory').textContent = chat ? 'Memory' + (chat.memories?.length ? ` · ${chat.memories.length}` : '') : 'History';
     $('#chat-title').title = chat?.title ? `${chat.title} — open in History` : 'Open chat history';
+    const contextToggle = $('#chat-context-toggle');
+    const contextOn = chat?.contextEnabled !== false;
+    contextToggle.textContent = contextOn ? 'Context on' : 'Context off';
+    contextToggle.setAttribute('aria-pressed', String(contextOn));
+    contextToggle.disabled = !chat;
+    contextToggle.title = contextOn
+      ? 'Uses a compact recap, recent answers and preferences from this chat. Click to ask without past chat context. All messages stay saved.'
+      : 'Past chat context is off. All messages stay saved. Click to use this chat’s context again.';
   }
+  $('#chat-context-toggle').addEventListener('click', async () => {
+    if (busy || !activeChat) return;
+    const button = $('#chat-context-toggle'); button.disabled = true;
+    const enabled = activeChat.contextEnabled === false;
+    try {
+      await cue.chatMutate('context', activeChat.id, enabled);
+      showToast('Chat context ' + (enabled ? 'on' : 'off') + '. Messages remain saved.', 2600);
+    } catch (error) { showToast(error.message || 'Could not save the chat context setting.', 3500); }
+    finally { button.disabled = !activeChat; }
+  });
   function savedGroup(exchange) {
     const group = document.createElement('div'); group.className = 'response-group'; group.dataset.exchangeId = exchange.id;
     const sep = document.createElement('div'); sep.className = 'response-sep';
@@ -187,7 +212,7 @@
     }
     if (exchange.status !== 'complete') {
       const status = document.createElement('p'); status.className = 'chat-interrupted';
-      status.textContent = exchange.status === 'pending' ? 'Generating…' : exchange.status === 'interrupted' ? 'Answer interrupted. Ask again to continue.' : 'Answer failed. ' + (exchange.error || 'Please try again.');
+      status.textContent = exchange.status === 'pending' ? 'Generating…' : exchange.status === 'cancelled' ? 'Stopped by you. Your partial answer is saved.' : exchange.status === 'interrupted' ? 'Answer interrupted. Ask again to continue.' : 'Answer failed. ' + (exchange.error || 'Please try again.');
       group.append(status);
     }
     return group;
@@ -210,6 +235,16 @@
     }); messages.prepend(button);
   }
   function restoreChat(snapshot) {
+    if (messageEdit && activeChat?.id !== snapshot?.chat?.id) finishMessageEdit(true);
+    if (activeChat?.id !== snapshot?.chat?.id && !pendingSubmission) {
+      if (activeChat?.id) {
+        if (input.value) chatDrafts.set(activeChat.id, input.value);
+        else chatDrafts.delete(activeChat.id);
+      }
+      input.value = chatDrafts.get(snapshot?.chat?.id) || '';
+      inputFromSTT = false;
+      syncPlaceholder(); updateSendButtonState();
+    }
     chatRevision++; clearMessages();
     const chat = snapshot?.chat; updateChatTitle(chat); earlierOffset = chat?.offset || 0;
     if (chat?.exchanges?.length) {
@@ -226,7 +261,7 @@
   cue.on('chats:meta', snapshot => { if (snapshot.chat?.id === activeChat?.id) updateChatTitle(snapshot.chat); });
   cue.on('chats:changed', async () => {
     const revision = chatRevision;
-    try { const snapshot = await cue.chatsState(); if (revision === chatRevision && snapshot.chat?.id === activeChat?.id) updateChatTitle(snapshot.chat); } catch { /* history errors are surfaced on open */ }
+    try { const snapshot = await cue.chatSummary(); if (revision === chatRevision && snapshot.chat?.id === activeChat?.id) updateChatTitle(snapshot.chat); } catch { /* history errors are surfaced on open */ }
   });
   $('#chat-title').addEventListener('click', () => sessionHistory.open({ id: activeChat?.id }));
   $('#chat-memory').addEventListener('click', () => sessionHistory.open({ id: activeChat?.id, memory: true }));
@@ -254,7 +289,7 @@
     answerRenderTimer = setTimeout(() => {
       answerRenderTimer = null;
       if (aiEl === target && target.isConnected) renderAnswer(target, true);
-    }, 100);
+    }, target.dataset.raw.length > 20000 ? 300 : target.dataset.raw.length > 8000 ? 180 : 100);
   }
 
   function finalizeAi() {
@@ -268,13 +303,23 @@
   let busyFailsafe = null;
   function setBusy(v) {
     busy = v;
-    $('#send-btn').classList.toggle('busy', v);
+    const sendButton = $('#send-btn');
+    sendButton.classList.toggle('busy', v);
+    sendButton.innerHTML = icon(v ? 'square' : 'play', { size: 15 });
+    sendButton.setAttribute('aria-label', v ? 'Stop generating answer' : 'Send question');
+    sendButton.title = v ? 'Stop generating. Your partial answer will be saved.' : `Send · ${isWindows ? 'Ctrl+Shift+A' : '⌘⇧A'} to force answer`;
     $('#new-answer-thread').disabled = v;
+    $('#message-edit-cancel').disabled = v;
+    userMessages.refresh();
+    document.querySelectorAll('.act').forEach(button => { button.disabled = v; });
     clearTimeout(busyFailsafe);
-    // Failsafe: main has a 25s stream watchdog that always sends llm:done/llm:error, but if a
-    // terminal event is ever lost the whole UI stays frozen — self-clear after a generous window.
-    if (v) busyFailsafe = setTimeout(() => setBusy(false), 40000);
+    // Reconcile with main instead of unlocking over a legitimate long answer.
+    if (v) busyFailsafe = setTimeout(async () => {
+      try { const actual = await cue.answerState(); answerRequestId = actual.requestId; setBusy(actual.busy); }
+      catch { showStatus('Cue is taking longer than expected. Use Stop to end this answer.'); }
+    }, 15000);
   }
+  cue.on('answer:state', actual => { answerRequestId = actual.requestId; setBusy(actual.busy); });
 
   // ---- toast helper ------------------------------------------------------
   // FIX #7: Toast queue system — ensures latest toast wins cleanly without stacking
@@ -297,10 +342,15 @@
   }
 
   // ---- actions -----------------------------------------------------------
-  function runMode(mode, text) {
-    if (busy) return;
+  async function runMode(mode, text) {
+    if (busy) return false;
     setBusy(true);
-    cue.ask({ mode, text: text || '' });
+    try {
+      const result = await cue.ask({ mode, text: text || '' });
+      if (!result.accepted) { answerRequestId = result.requestId || null; setBusy(!!result.busy); showToast(result.message || 'Cue is busy. Your draft is kept.', 3000); return false; }
+      if (busy) answerRequestId = result.requestId;
+      return true;
+    } catch (error) { setBusy(false); showStatus('Could not send the question. Your draft is kept. ' + error.message); return false; }
   }
 
   document.querySelectorAll('.act').forEach((btn) => {
@@ -318,6 +368,22 @@
   let questionFinalizeTimer = null;
   let softClearTimer = null;
   let userSpeechStart = null;
+
+  function finishMessageEdit(restoreDraft) {
+    if (!messageEdit) return;
+    const draft = messageEdit.draft; messageEdit = null; $('#message-edit-banner').hidden = true;
+    if (restoreDraft) { input.value = draft; inputFromSTT = false; syncPlaceholder(); updateSendButtonState(); }
+  }
+  function editSentMessage(text) {
+    if (busy) return;
+    if (!messageEdit) messageEdit = { draft: input.value };
+    input.value = text; inputFromSTT = false; lastSTTValue = ''; userSpeechStart = null;
+    clearTimeout(softClearTimer); clearTimeout(questionFinalizeTimer); clearTimeout(sttFillTimer);
+    composer.classList.remove('stt-filling', 'stt-dimmed', 'stt-ready', 'stt-accumulating');
+    $('#message-edit-banner').hidden = false; input.focus(); input.setSelectionRange(text.length, text.length);
+    syncPlaceholder(); updateSendButtonState(); input.scrollTop = 0;
+  }
+  $('#message-edit-cancel').addEventListener('click', () => { if (!busy) { finishMessageEdit(true); input.focus(); } });
 
   // Question history for undo (Ctrl+Z)
   const questionHistory = [];
@@ -447,6 +513,7 @@
 
   // ---- Auto-fill the input box with transcribed speech from interviewer ----
   function autoFillInputFromSTT(text) {
+    if (messageEdit) return;
     // If user has manually typed something different, don't overwrite
     if (!inputFromSTT && input.value.trim().length > 0) return;
 
@@ -601,14 +668,27 @@
   input.addEventListener('blur', () => { composer.classList.remove('focused'); syncPlaceholder(); });
   $('#input-area').addEventListener('click', () => input.focus());
 
-  function send() {
+  async function send() {
+    if (busy) { showToast('Cue is answering. Click Stop to end the current answer; your draft is kept.', 2500); return; }
     const text = input.value;
     if (!text.trim()) { runMode('assist', ''); return; }
     const wasFromSTT = inputFromSTT;
+    const editing = messageEdit;
+    pendingSubmission = text;
+    const accepted = await runMode(wasFromSTT ? 'answerThis' : 'ask', text);
+    if (!accepted) { pendingSubmission = null; return; }
     
     // Save to history before clearing (in case user wants to redo)
     saveToQuestionHistory(text);
+
+    if (editing && messageEdit === editing) {
+      const untouched = input.value === text; finishMessageEdit(false);
+      if (untouched) input.value = editing.draft;
+      inputFromSTT = false; syncPlaceholder(); updateSendButtonState(); return;
+    }
     
+    // A draft typed while admission was pending belongs to the next request.
+    if (input.value !== text) return;
     input.value = '';
     inputFromSTT = false;
     lastSTTValue = ''; // FIX #6: Clear tracked STT value
@@ -622,10 +702,17 @@
     
     // If text came from STT (interviewer question), use answerThis mode
     // Otherwise use ask mode (user typed their own question)
-    runMode(wasFromSTT ? 'answerThis' : 'ask', text);
   }
-  $('#send-btn').addEventListener('click', send);
+  $('#send-btn').addEventListener('click', async () => {
+    if (!busy) { void send(); return; }
+    try {
+      const state = answerRequestId ? { requestId: answerRequestId } : await cue.answerState();
+      const result = await cue.cancelAnswer(state.requestId);
+      if (!result.ok) { answerRequestId = result.requestId; setBusy(result.busy); }
+    } catch (error) { showStatus('Could not stop the answer. ' + error.message); }
+  });
   input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && messageEdit && !busy) { e.preventDefault(); finishMessageEdit(true); input.focus(); return; }
     // Ctrl+Z / Cmd+Z: restore last question if input is empty
     if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !input.value.trim()) {
       e.preventDefault();
@@ -1327,7 +1414,9 @@
     const title = last && last.caption ? last.caption.split('\n')[0].slice(0, 80) : 'Slide ' + count;
     showToast(`Slide ${count} captured · ${title}`, 3000);
   });
-  cue.on('llm:start', ({ userBubble, small, category, chat, exchangeId }) => {
+  cue.on('llm:start', ({ userBubble, small, category, chat, exchangeId, requestId }) => {
+    if (requestId) answerRequestId = requestId;
+    pendingSubmission = null;
     chatRevision++;
     if (chat) updateChatTitle(chat);
     messages.querySelector('.chat-empty')?.remove();
@@ -1372,11 +1461,22 @@
     updateLatestAnswer();
     setBusy(true);
   });
-  cue.on('llm:token', ({ text }) => appendToken(text));
-  cue.on('llm:done', () => { finalizeAi(); setBusy(false); });
-  cue.on('llm:error', ({ message, action }) => {
-    if (!aiEl) startAi(true);
-    aiEl.dataset.raw = message; finalizeAi(); setBusy(false);
+  cue.on('llm:token', ({ text, requestId }) => { if (!requestId || requestId === answerRequestId) appendToken(text); });
+  function answerNotice(message) {
+    const note = document.createElement('p'); note.className = 'chat-interrupted'; note.textContent = message;
+    (messages.querySelector('.response-group:last-child') || messages).append(note);
+  }
+  cue.on('llm:done', ({ message, requestId } = {}) => {
+    if (requestId && answerRequestId && requestId !== answerRequestId) return;
+    finalizeAi(); if (message) answerNotice(message); setBusy(false); answerRequestId = null;
+  });
+  cue.on('llm:error', ({ message, action, requestId }) => {
+    if (requestId && answerRequestId && requestId !== answerRequestId) return;
+    if (pendingSubmission && !input.value) { input.value = pendingSubmission; syncPlaceholder(); }
+    pendingSubmission = null;
+    if (aiEl?.dataset.raw.trim()) { finalizeAi(); answerNotice(message); }
+    else { if (!aiEl) startAi(true); aiEl.dataset.raw = message; finalizeAi(); }
+    setBusy(false); answerRequestId = null;
     // publik errors carry one action: the renderer's markdown emits no anchors,
     // so a link needs a real button (same pattern as the mic banner).
     if (action && action.kind === 'card') { showPublikCard(); return; }
@@ -1994,6 +2094,8 @@
   // Drag/resize gestures share pointer capture with click-through handling.
   const { setIgnore } = window.CueWindowInteractions.install({ cue });
   const sessionHistory = window.CueSessionHistory.install({ cue, document, icon, onOpen: () => { setIgnore(false); cue.windowEnsureVisible(); } });
+  window.CueChatLibrary = window.CueChatSidebar.install({ cue, document, icon, isBusy: () => busy,
+    onOpen: () => { setIgnore(false); cue.windowEnsureVisible(); } });
   modeUI = window.CueMeetingModes.install({ cue, document, icon,
     onBeforeOpen: async () => {
       if (!scrim.classList.contains('hidden') && !(await saveSettings())) return false;

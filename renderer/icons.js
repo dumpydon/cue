@@ -2,6 +2,11 @@
 // icon(name, {size, stroke, fill}) -> SVG markup string.
 (function () {
   const P = {
+    'copy-message': '<rect x="3" y="8" width="13" height="13" rx="3"/><path d="M8 8V6a3 3 0 0 1 3-3h7a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3h-2"/>',
+    'pencil-message': '<path d="m15.5 4.5 4 4M3 21l5.5-1.5L20 8a2.83 2.83 0 0 0-4-4L4.5 15.5 3 21Z"/>',
+    check: '<path d="m5 12 4 4 10-10"/>',
+    pin: '<path d="m16 3 5 5-4 1-4 4-1 5-6-6 5-1 4-4 1-4Z"/><path d="m2 22 6-6"/>',
+    layers: '<path d="m12 3 10 6-10 6L2 9l10-6Z"/><path d="m2 13 10 6 10-6M2 17l10 6 10-6"/>',
     'layout-grid': '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
     'file-text': '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h6"/>',
     'graduation-cap': '<path d="m2 10 10-5 10 5-10 5-10-5ZM6 12v6c4 3 8 3 12 0v-6M22 10v7"/>',

@@ -170,9 +170,18 @@ html[data-window-interaction], html[data-window-interaction] * {
 .tb-hide.collapsed .chev { transform: rotate(180deg); }
 .tb-opacity-wrap { position: relative; display: inline-flex; }
 .tb-opacity { width: 28px; height: 28px; padding: 0; border-radius: var(--r-pill); }
-.tb-opacity .ic { width: 14px; height: 14px; display: inline-flex; }
+.tb-opacity .ic { width: 13.5px; height: 13.5px; display: inline-flex; }
+.toolbar-opacity-glyph, .toolbar-pin-glyph { flex-shrink: 0; background: currentColor; mask: var(--toolbar-glyph) center / contain no-repeat; -webkit-mask: var(--toolbar-glyph) center / contain no-repeat; }
+.toolbar-opacity-glyph { --toolbar-glyph: url('assets/toolbar-opacity-v2.png'); mask-size: 180%; -webkit-mask-size: 180%; }
+.toolbar-pin-glyph { --toolbar-glyph: url('assets/toolbar-pin-v2.png'); display: inline-block; width: 18px; height: 18px; }
 .tb-opacity:hover { background: rgba(255,255,255,0.08); }
 .tb-opacity.on { background: rgba(255,255,255,0.10); }
+.tb-workspace { width: 28px; height: 28px; padding: 0; border-radius: 8px; }
+#toolbar .tb-workspace.on { background: rgba(255,255,255,.1); }
+#toolbar .tb-workspace:hover { background: rgba(255,255,255,.16); }
+#toolbar .tb-workspace:focus-visible { outline: 2px solid #7fb0f9; outline-offset: 2px; }
+#toolbar .tb-workspace:disabled { opacity: .5; cursor: default; }
+#toolbar .tb-workspace[hidden] { display: none; }
 .opacity-popover {
   position: absolute; top: calc(100% + 8px); left: 0; z-index: 60;
   display: flex; flex-direction: column; align-items: stretch; gap: 6px;
@@ -282,24 +291,41 @@ button:focus { outline: none; }
   align-self: flex-end;
   max-width: 75%;
   min-width: 0;
+  display: flex; flex-direction: column; align-items: stretch;
+  animation: fadeUp 200ms ease both;
+  -webkit-user-select: text; user-select: text;
+}
+.user-message-body {
   background: var(--accent);
   color: #fff;
   border-radius: 16px 16px 4px 16px;
   padding: 9px 14px;
   font-size: 15px; font-weight: 500; line-height: 1.35;
   box-shadow: 0 2px 8px rgba(60,131,245,0.35);
-  animation: fadeUp 200ms ease both;
   -webkit-user-select: text; user-select: text;
   cursor: text;
 }
 .user-message-text { white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4; line-height: 1.5; }
 .user-bubble:not(.expanded) .user-message-text { max-height: 9em; overflow: hidden; }
-.user-message-actions { display: flex; align-items: center; gap: 14px; margin-top: 7px; user-select: none; -webkit-user-select: none; }
-.user-message-actions button { border: 0; border-radius: 4px; padding: 2px 0; background: transparent; color: rgba(255,255,255,.88); font: 500 11px/1.5 var(--font); cursor: pointer; }
-.user-message-actions button:hover { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
-.user-message-actions button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
-.user-message-actions button[hidden] { display: none; }
-.user-message-copy { margin-left: auto; }
+.user-message-toggle { display: inline-flex; align-items: center; gap: 5px; margin-top: 7px; border: 0; border-radius: 4px; padding: 2px 0; background: transparent; color: rgba(255,255,255,.9); font: 500 11px/1.5 var(--font); cursor: pointer; }
+.user-message-toggle[hidden] { display: none; }
+.user-message-toggle:hover { color: #fff; }
+.user-message-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.user-message-chevron { display: inline-flex; }
+.expanded .user-message-chevron { transform: rotate(180deg); }
+.user-message-actions { display: flex; justify-content: flex-end; align-items: center; gap: 2px; margin-top: 3px; height: 26px; opacity: 0; pointer-events: none; user-select: none; -webkit-user-select: none; }
+.user-bubble:hover .user-message-actions, .user-bubble:focus-within .user-message-actions { opacity: 1; pointer-events: auto; }
+.user-message-actions button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 26px; border: 0; border-radius: 6px; padding: 4px; background: transparent; color: #bdb5c7; cursor: pointer; }
+.user-message-actions button svg, .user-message-chevron svg { pointer-events: none; }
+.user-message-actions button:hover { color: #f5f0f8; background: #ffffff0b; }
+.user-message-actions button:focus-visible { outline: 2px solid #8db9f6; outline-offset: -2px; }
+.user-message-actions button:disabled { opacity: .4; cursor: default; }
+@media (hover: none) { .user-message-actions { opacity: 1; pointer-events: auto; } }
+#message-edit-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #c4d8f7; font: 11px var(--font); }
+#message-edit-banner[hidden] { display: none; }
+#message-edit-cancel { border: 0; border-radius: 4px; padding: 3px 5px; background: transparent; color: #d8ccdf; font: inherit; cursor: pointer; }
+#message-edit-cancel:hover { background: #ffffff0d; }
+#message-edit-cancel:focus-visible { outline: 2px solid #8db9f6; }
 .ai-text {
   color: var(--tx-1);
   font-size: 20px; font-weight: 400; line-height: 1.5; letter-spacing: -0.01em;
@@ -538,7 +564,8 @@ button:focus { outline: none; }
 }
 #send-btn:hover { filter: brightness(1.08); transform: scale(1.05); }
 #send-btn:active { transform: scale(0.96); }
-#send-btn.busy { opacity: 0.6; pointer-events: none; }
+#send-btn.busy { opacity: 1; background: #475369; }
+#send-btn.busy:hover { background: #59677f; }
 
 /* ============================ Settings ============================ */
 #settings-scrim {
@@ -1014,7 +1041,8 @@ button:focus { outline: none; }
 #chat-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 #chat-strip button:hover { background: rgba(255,255,255,.06); color: white; }
 #chat-strip button:focus-visible { outline: 2px solid #7fb0f9; }
-#chat-memory { white-space: nowrap; }
+#chat-memory, #chat-context-toggle { white-space: nowrap; }
+#chat-context-toggle[aria-pressed="true"] { color: var(--accent, #8db8ff); }
 .history-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .history-button { border: 1px solid var(--bd-hair); border-radius: 8px; background: var(--fill-1); color: #d9d1e3; padding: 7px 11px; font: 500 12px/1.35 var(--font); cursor: pointer; }
 .history-button:hover, .history-button[aria-pressed="true"] { background: rgba(127,176,249,.16); border-color: #7fb0f970; color: white; }

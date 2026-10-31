@@ -326,6 +326,9 @@ app.on('browser-window-created', (_event, win) => {
       assert.equal(await js("document.querySelector('#input').value"), 'Typing still works');
       assert.deepEqual(win.getBounds(), initial);
       await js("document.querySelector('#messages').innerHTML = '<div class=\"ai-text\">' + '<p>Selectable test response with enough text to scroll.</p>'.repeat(35) + '</div>'");
+      await js("document.querySelector('#messages').scrollTop = 0");
+      // Commit the replacement feed before Chromium hit-tests native input.
+      await js('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
       const answer = await js(`(() => {
         const range = document.createRange();
         range.selectNodeContents(document.querySelector('#messages p'));
@@ -337,6 +340,10 @@ app.on('browser-window-created', (_event, win) => {
       input('mouseMove', { x: answer.x + 75, y: answer.y }, { movementX: 75, movementY: 0, modifiers: ['leftButtonDown'] });
       await release({ x: answer.x + 75, y: answer.y });
       assert.deepEqual(win.getBounds(), initial);
+      if (!await js('window.getSelection().toString().length > 0')) {
+        console.error('Selection diagnostic', await js(`(() => {const m=document.querySelector('#messages'),p=m.querySelector('p'),t=document.elementFromPoint(${answer.x},${answer.y});return {point:${JSON.stringify(answer)},target:t?.outerHTML?.slice(0,250),targetSelect:t&&getComputedStyle(t).userSelect,paragraph:p.getBoundingClientRect().toJSON(),feed:m.getBoundingClientRect().toJSON(),scroll:m.scrollTop,focus:document.activeElement?.id,gesture:document.documentElement.dataset.windowInteraction};})()`));
+        await screenshot('selection-failure');
+      }
       assert.ok(await js('window.getSelection().toString().length > 0'), 'response text stays selectable');
       assert.equal(await js('document.documentElement.dataset.windowInteraction === undefined'), true);
       if (testProtection) await assertArrowCursors();

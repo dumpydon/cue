@@ -236,7 +236,7 @@ function stripDataUrl(dataUrl) {
   return m ? { mime: m[1], b64: m[2] } : null;
 }
 
-async function streamOpenAI({ apiKey, baseURL, model, system, turns, imageDataUrl, maxTokens, thinking, onToken, onResponse }) {
+async function streamOpenAI({ apiKey, baseURL, model, system, turns, imageDataUrl, maxTokens, thinking, onToken, onResponse, signal, onProgress }) {
   const OpenAI = require('openai');
   const client = new OpenAI(baseURL ? { apiKey, baseURL } : { apiKey });
   const messages = [{ role: 'system', content: system }];
@@ -259,7 +259,7 @@ async function streamOpenAI({ apiKey, baseURL, model, system, turns, imageDataUr
   const tokenOptions = /^gpt-(?:5\.6|6(?:\.\d+)?)(?:-|$)/i.test(model)
     ? { max_completion_tokens: maxTokens + (thinking ? 8192 : 4096), reasoning_effort: thinking ? 'medium' : 'low' }
     : { max_tokens: maxTokens };
-  const pending = client.chat.completions.create({ model, messages, stream: true, ...tokenOptions });
+  const pending = client.chat.completions.create({ model, messages, stream: true, ...tokenOptions }, { signal });
   let stream;
   if (typeof onResponse === 'function' && pending && typeof pending.withResponse === 'function') {
     // The gateway stamps x-publik-* headers at admission; hand the raw
@@ -272,9 +272,12 @@ async function streamOpenAI({ apiKey, baseURL, model, system, turns, imageDataUr
   }
   let full = '';
   for await (const part of stream) {
+    if (signal?.aborted) throw signal.reason;
+    onProgress?.();
     const d = part.choices && part.choices[0] && part.choices[0].delta && part.choices[0].delta.content;
     if (d) { full += d; onToken(d); }
   }
+  if (signal?.aborted) throw signal.reason;
   return full;
 }
 
@@ -289,7 +292,7 @@ function normalizeAzureBaseURL(raw) {
   return u;
 }
 
-async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, endpoint }) {
+async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, endpoint, signal, onProgress }) {
   const url = normalizeAzureBaseURL(endpoint);
   if (!url) throw new Error('Missing Azure endpoint. Add your Azure AI Foundry or Azure OpenAI endpoint in Settings.');
   const messages = [{ role: 'system', content: system }];
@@ -319,16 +322,19 @@ async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxToke
     };
     client = new OpenAI({ baseURL: url, apiKey, fetch: azureFetch });
   }
-  const stream = await client.chat.completions.create({ model, messages, stream: true, max_completion_tokens: maxTokens });
+  const stream = await client.chat.completions.create({ model, messages, stream: true, max_completion_tokens: maxTokens }, { signal });
   let full = '';
   for await (const part of stream) {
+    if (signal?.aborted) throw signal.reason;
+    onProgress?.();
     const d = part.choices && part.choices[0] && part.choices[0].delta && part.choices[0].delta.content;
     if (d) { full += d; onToken(d); }
   }
+  if (signal?.aborted) throw signal.reason;
   return full;
 }
 
-async function streamAnthropic({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken }) {
+async function streamAnthropic({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onProgress }) {
   const Anthropic = require('@anthropic-ai/sdk');
   const client = new Anthropic({ apiKey });
   const messages = turns.map((t, i) => {
@@ -342,11 +348,14 @@ async function streamAnthropic({ apiKey, model, system, turns, imageDataUrl, max
     }
     return { role: t.role, content: t.text };
   });
-  const stream = await client.messages.create({ model, max_tokens: maxTokens, system, messages, stream: true });
+  const stream = await client.messages.create({ model, max_tokens: maxTokens, system, messages, stream: true }, { signal });
   let full = '';
   for await (const ev of stream) {
+    if (signal?.aborted) throw signal.reason;
+    onProgress?.();
     if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta') { full += ev.delta.text; onToken(ev.delta.text); }
   }
+  if (signal?.aborted) throw signal.reason;
   return full;
 }
 
@@ -369,7 +378,7 @@ function geminiGenerationConfig({ system, maxTokens, thinking }) {
   return config;
 }
 
-async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTokens, thinking, onToken }) {
+async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTokens, thinking, onToken, signal, onProgress }) {
   const { GoogleGenAI } = require('@google/genai');
   const ai = new GoogleGenAI({ apiKey });
   const contents = turns.map((t, i) => {
@@ -382,25 +391,30 @@ async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTok
     return { role: t.role === 'assistant' ? 'model' : 'user', parts };
   });
   const config = geminiGenerationConfig({ system, maxTokens, thinking });
+  if (signal) config.abortSignal = signal;
   let stream;
   try {
     stream = await ai.models.generateContentStream({ model, contents, config });
   } catch (e) {
     // A model that predates thinkingLevel (or a custom id that rejects it)
     // should still answer: retry once without the thinking setting.
+    if (signal?.aborted) throw signal.reason;
     if (!config.thinkingConfig || !/thinking/i.test((e && e.message) || '')) throw e;
     delete config.thinkingConfig;
     stream = await ai.models.generateContentStream({ model, contents, config });
   }
   let full = '';
   for await (const chunk of stream) {
+    if (signal?.aborted) throw signal.reason;
+    onProgress?.();
     const t = chunk && chunk.text;
     if (t) { full += t; onToken(t); }
   }
+  if (signal?.aborted) throw signal.reason;
   return full;
 }
 
-async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken }) {
+async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onProgress }) {
   const baseUrl = apiKey || 'http://localhost:11434';
   const url = `${baseUrl.replace(/\/$/, '')}/api/chat`;
 
@@ -424,9 +438,11 @@ async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTok
     response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages, stream: true })
+      body: JSON.stringify({ model, messages, stream: true, options: { num_predict: maxTokens } }),
+      signal
     });
   } catch (err) {
+    if (signal?.aborted) throw signal.reason;
     throw new Error(`Ollama fetch failed: ${err.message}. Is Ollama running at ${baseUrl}?`);
   }
 
@@ -438,7 +454,10 @@ async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTok
   let full = '';
   let buffer = '';
   for await (const chunk of response.body) {
+    if (signal?.aborted) throw signal.reason;
+    onProgress?.();
     buffer += decoder.decode(chunk, { stream: true });
+    if (buffer.length > 1024 * 1024) throw new Error('Ollama sent an oversized stream frame.');
     const lines = buffer.split('\n');
     buffer = lines.pop(); // keep incomplete line
     for (const line of lines) {
@@ -463,6 +482,7 @@ async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTok
       }
     } catch (e) { }
   }
+  if (signal?.aborted) throw signal.reason;
   return full;
 }
 
@@ -545,6 +565,7 @@ function createLLM(settings) {
         if (provider === 'azure') return await streamAzure(args);
         throw new Error('unknown provider: ' + provider);
       } catch (error) {
+        if (params.signal?.aborted) throw params.signal.reason;
         // publik branches return an Error carrying `.action`; the string
         // branches keep working unchanged.
         const wrapped = formatProviderErrorMessage(error, provider, model);

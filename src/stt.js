@@ -2,6 +2,7 @@
 // no audio API — we transcribe with whatever audio-capable key is available, and
 // fall back across providers. Returns { text, provider } or { text:'', error }.
 const { pcmToWav } = require('./wav');
+const { waitWithSignal } = require('./answer-run');
 const { formatProviderErrorMessage, isQuotaError, isRateLimitError, isNotFoundError, resolveGeminiModel, CURRENT_GEMINI_DEFAULT, GEMINI_TRANSCRIBE_MODEL } = require('./llm');
 
 const BASE_VOCAB = 'CI/CD, Docker, Kubernetes, Terraform, Jenkins, AWS, Azure, GCP, ' +
@@ -30,7 +31,7 @@ function buildVocabPrompt(settings) {
   return prompt;
 }
 
-async function transcribeOpenAI(apiKey, wav, model, baseURL, prompt) {
+async function transcribeOpenAI(apiKey, wav, model, baseURL, prompt, signal) {
   const OpenAI = require('openai');
   const toFile = OpenAI.toFile || require('openai/uploads').toFile;
   const client = new OpenAI({ apiKey, baseURL });
@@ -41,7 +42,7 @@ async function transcribeOpenAI(apiKey, wav, model, baseURL, prompt) {
     language: 'en',
     temperature: 0,
     prompt: prompt || ''
-  });
+  }, { signal, maxRetries: 0 });
   return (res.text || '').trim();
 }
 
@@ -70,17 +71,19 @@ const TRANSCRIBE_MODEL_COOLDOWN_MS = 60000;
 let transcribeModelDownUntil = 0;
 
 // Split from transcribeGemini so tests can pass a fake client.
-async function transcribeGeminiWith(ai, wav, now = Date.now()) {
+async function transcribeGeminiWith(ai, wav, now = Date.now(), signal) {
   const audio = { inlineData: { mimeType: 'audio/wav', data: wav.toString('base64') } };
   if (now >= transcribeModelDownUntil) {
     try {
       // The dedicated transcription model needs no instruction prompt.
       const res = await ai.models.generateContent({
         model: GEMINI_TRANSCRIBE_MODEL,
+        ...(signal ? { config: { abortSignal: signal } } : {}),
         contents: [{ role: 'user', parts: [audio] }]
       });
       return extractGeminiTranscript(res);
     } catch (e) {
+      if (signal?.aborted) throw signal.reason;
       // Same key, same provider — only the model id changes, so a retired or
       // rate-limited transcribe model degrades to the chat model rather than
       // to a 404/429 loop. Anything else (bad key, network) still propagates.
@@ -90,6 +93,7 @@ async function transcribeGeminiWith(ai, wav, now = Date.now()) {
   }
   const res = await ai.models.generateContent({
     model: CURRENT_GEMINI_DEFAULT,
+    ...(signal ? { config: { abortSignal: signal } } : {}),
     contents: [{ role: 'user', parts: [
       { text: 'Transcribe this audio verbatim. Return only the spoken words with no commentary. If there is no clear speech, return an empty response.' },
       audio
@@ -98,12 +102,12 @@ async function transcribeGeminiWith(ai, wav, now = Date.now()) {
   return extractGeminiTranscript(res);
 }
 
-async function transcribeGemini(apiKey, wav) {
+async function transcribeGemini(apiKey, wav, signal) {
   const { GoogleGenAI } = require('@google/genai');
-  return transcribeGeminiWith(new GoogleGenAI({ apiKey }), wav);
+  return transcribeGeminiWith(new GoogleGenAI({ apiKey }), wav, Date.now(), signal);
 }
 
-function createSTT(settings) {
+function createSTT(settings, { timeoutMs = 20000 } = {}) {
   const keys = settings.apiKeys || {};
   const selectedProvider = settings.sttProvider || 'auto';
   const vocabPrompt = buildVocabPrompt(settings);
@@ -112,11 +116,11 @@ function createSTT(settings) {
   // that id back to the user instead of a hardcoded one they never picked.
   if ((selectedProvider === 'auto' || selectedProvider === 'openai') && keys.openai) {
     const model = settings.sttModel || 'whisper-1';
-    chain.push({ p: 'openai', m: model, fn: (wav) => transcribeOpenAI(keys.openai, wav, model, undefined, vocabPrompt) });
+    chain.push({ p: 'openai', m: model, fn: (wav, signal) => transcribeOpenAI(keys.openai, wav, model, undefined, vocabPrompt, signal) });
   }
   if ((selectedProvider === 'auto' || selectedProvider === 'groq') && keys.groq) {
     const model = 'whisper-large-v3-turbo';
-    chain.push({ p: 'groq', m: model, fn: (wav) => transcribeOpenAI(keys.groq, wav, model, 'https://api.groq.com/openai/v1', vocabPrompt) });
+    chain.push({ p: 'groq', m: model, fn: (wav, signal) => transcribeOpenAI(keys.groq, wav, model, 'https://api.groq.com/openai/v1', vocabPrompt, signal) });
   }
   if ((selectedProvider === 'auto' || selectedProvider === 'gemini') && keys.gemini) {
     // transcribeGemini always tries the dedicated GEMINI_TRANSCRIBE_MODEL first
@@ -124,7 +128,7 @@ function createSTT(settings) {
     // here is just what error messages/`stt.models` report, resolved the same
     // way the chat path picks a model.
     const model = resolveGeminiModel(settings);
-    chain.push({ p: 'gemini', m: model, fn: (wav) => transcribeGemini(keys.gemini, wav) });
+    chain.push({ p: 'gemini', m: model, fn: (wav, signal) => transcribeGemini(keys.gemini, wav, signal) });
   }
   // Custom (OpenAI-compatible) endpoint: same shape as the Groq branch above,
   // just pointed at the user's own Base URL. Deliberately NOT part of 'auto' —
@@ -132,7 +136,7 @@ function createSTT(settings) {
   // the audio-transcription API at all, so this only fires on an explicit
   // choice, and only once both the URL and the key it needs are actually set.
   if (selectedProvider === 'custom' && keys.custom && settings.baseUrl) {
-    chain.push({ p: 'custom', fn: (wav) => transcribeOpenAI(keys.custom, wav, settings.sttModel, settings.baseUrl, vocabPrompt) });
+    chain.push({ p: 'custom', fn: (wav, signal) => transcribeOpenAI(keys.custom, wav, settings.sttModel, settings.baseUrl, vocabPrompt, signal) });
   }
   if (keys.openai && chain.length > 1) chain.unshift(chain.splice(chain.findIndex((c) => c.p === 'openai'), 1)[0]);
 
@@ -143,20 +147,26 @@ function createSTT(settings) {
     available: chain.length > 0,
     providers: chain.map((c) => c.p),
     models: chain.map((c) => c.m),
-    async transcribe(pcm) {
+    async transcribe(pcm, { signal } = {}) {
       if (!chain.length || !pcm || pcm.length < 3200) return { text: '' };
       const now = Date.now();
       if (disabledUntil && now < disabledUntil) return { text: '', error: { provider: lastProvider, message: `Temporary ${lastProvider || 'provider'} quota or rate-limit; waiting 30s before retrying.` } };
       const wav = pcmToWav(pcm, 16000, 1);
+      const controller = new AbortController();
+      const abort = () => controller.abort(signal.reason);
+      if (signal?.aborted) controller.abort(signal.reason);
+      signal?.addEventListener('abort', abort, { once: true });
+      const timer = setTimeout(() => controller.abort(Object.assign(new Error('Speech transcription timed out. Check your provider connection.'), { code: 'STT_TIMEOUT' })), timeoutMs);
       let lastErr = null;
-      for (const c of chain) {
+      try { for (const c of chain) {
         try {
-          const text = await c.fn(wav);
+          const text = await waitWithSignal(c.fn(wav, controller.signal), controller.signal);
           disabledUntil = 0;
           lastProvider = c.p;
           if (looksLikeHallucination(text)) return { text: '', provider: c.p };
           return { text, provider: c.p };
         } catch (e) {
+          if (controller.signal.aborted) return { text: '', error: { provider: c.p, code: controller.signal.reason?.code || 'STT_CANCELLED', message: controller.signal.reason?.message || 'Speech transcription stopped.' } };
           // Shares detection/wording with the LLM error path (src/llm.js) so a
           // 404 (dead/misspelled model) or 429 (quota) reads the same whether it
           // came from a chat request or a transcription request.
@@ -175,6 +185,7 @@ function createSTT(settings) {
         }
       }
       return { text: '', error: lastErr };
+      } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
     }
   };
 }

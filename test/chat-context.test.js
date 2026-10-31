@@ -40,3 +40,25 @@ test('newer DP preference supersedes the old one after many intervening messages
  assert.match(result.system,/bottom-up DP/); assert.doesNotMatch(result.system,/recursive DP/);
  const disabled=context({memories,memoryEnabled:false,now:3000}); assert.doesNotMatch(disabled.system,/bottom-up DP/);
 });
+
+test('context off sends no saved instructions, preferences, recap or earlier answers',()=>{
+ const result=context({contextEnabled:false,instructions:'PRIVATE_INSTRUCTIONS',memories:learnPreferences([],'I prefer recursive DP.','pref',1000),now:2000,exchanges:Array.from({length:12},(_,i)=>make(i))});
+ assert.equal(result.system,system);assert.equal(result.turns.length,1);
+ assert.equal(result.budget.addedTextTokens,0);assert.equal(result.budget.contextEnabled,false);
+});
+test('ten-day-old chats retain a small recent-topic recap and relevant older detail',()=>{
+ const exchanges=Array.from({length:50},(_,i)=>make(i,'Explain graph traversal topic '+i,'Use BFS with a queue.'));
+ exchanges[2]=make(2,'Explain coin change recurrence','Use dp(amount) = 1 + min(dp(amount - coin)).');
+ const result=context({exchanges,now:10*24*60*60*1000});
+ assert.ok(result.budget.recapTopics>0);assert.match(result.system,/Recent topics in this chat/);
+ assert.match(JSON.stringify(result.turns),/coin change recurrence/);
+ assert.doesNotMatch(result.system,/topic 0"/);assert.ok(result.budget.addedTextTokens<=1800);
+ assert.ok(result.budget.totalTextTokens<=result.budget.freshTextTokens*1.9);
+});
+test('topic recap never revives forgotten explicit preferences or failed answers',()=>{
+ const exchanges=[...Array.from({length:8},(_,i)=>make(i,'Explain topic '+i,'A short answer.')),
+  make(9,'I prefer Python.\nExplain graph traversal.','A short answer.'),
+  {...make(10,'PRIVATE_FAILED_TOPIC','FAILED'),status:'failed'}];
+ const result=context({exchanges});assert.doesNotMatch(result.system,/prefer Python|PRIVATE_FAILED_TOPIC|FAILED/);
+ assert.match(result.system,/graph traversal/);
+});

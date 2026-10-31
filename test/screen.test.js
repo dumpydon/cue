@@ -63,3 +63,22 @@ test('a small capture is never upscaled', () => {
   encodeScreenshot(fakeImage(1280, 800, log));
   assert.deepEqual(log, [{ toJPEG: JPEG_QUALITY }]);
 });
+
+test('capture chooses the display under the pointer and allocates bounded thumbnails',async()=>{
+ const {createScreenCapture}=require('../src/screen');let options;
+ const capture=createScreenCapture({platform:'linux',displays:{getPrimaryDisplay:()=>({id:1,size:{width:1920,height:1080}}),getCursorScreenPoint:()=>({x:3000,y:100}),getDisplayNearestPoint:()=>({id:2,size:{width:5120,height:2880}})},capturer:{getSources:async value=>{options=value;return [{display_id:'1',thumbnail:fakeImage(100,100)},{display_id:'2',thumbnail:fakeImage(1568,882)}];}}});
+ const result=await capture();assert.equal(options.thumbnailSize.width,1568);assert.equal(options.thumbnailSize.height,882);assert.ok(result.length>100000);
+});
+test('a hung capture times out and cannot accumulate overlapping native capture jobs',async()=>{
+ const {createScreenCapture}=require('../src/screen');let release,calls=0;
+ const capture=createScreenCapture({platform:'linux',timeoutMs:15,displays:{getPrimaryDisplay:()=>({id:1,size:{width:100,height:100}})},capturer:{getSources:()=>{calls++;return new Promise(resolve=>{release=resolve;});}}});
+ await assert.rejects(capture(),{code:'SCREEN_CAPTURE_TIMEOUT'});
+ await assert.rejects(capture(),{code:'SCREEN_CAPTURE_BUSY'});assert.equal(calls,1);
+ release([{display_id:'1',thumbnail:fakeImage(10,10)}]);await new Promise(resolve=>setImmediate(resolve));
+ const controller=new AbortController();const pending=capture({signal:controller.signal});controller.abort(new Error('stopped'));await assert.rejects(pending,/stopped/);
+ release([]);
+});
+test('an unexpectedly large JPEG is reduced or rejected before entering a provider request',()=>{
+ assert.throws(()=>encodeScreenshot({getSize:()=>({width:0,height:0})}),/empty/);
+ const url=encodeScreenshot(fakeImage(1568,1568));assert.ok(Buffer.byteLength(url)<=MAX_DATA_URL_BYTES);
+});

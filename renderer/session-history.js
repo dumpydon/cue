@@ -63,7 +63,7 @@
       const instructions = element('textarea', 'history-input'); instructions.id = 'chat-instructions'; instructions.rows = 3; instructions.maxLength = 1500;
       instructions.value = chat.instructions || ''; instructions.placeholder = 'For example: explain DP with recursion and memoization, then give complexity.';
       instructionLabel.htmlFor = instructions.id; form.append(instructionLabel, instructions);
-      form.append(element('p', 'history-help', 'Instructions always apply when relevant. Turning memory off stops automatic learning and use of saved preferences. Recent answers still support follow-ups.'));
+      form.append(element('p', 'history-help', 'With chat context on, instructions apply when relevant. This checkbox controls preference learning. The separate Context switch controls all past chat recall. Your archive is always saved.'));
       const rows = element('div', 'memory-rows');
       function addRow(memory = {}) {
         const row = element('div', 'memory-row'); row.dataset.id = memory.id || '';
@@ -92,7 +92,7 @@
         const answer = element('div', 'session-summary answer-content'); answer.dataset.raw = exchange.assistant;
         answer.innerHTML = root.CueAnswerFormat.render(exchange.assistant); row.append(answer);
       }
-      if (exchange.status !== 'complete') row.append(element('p', 'history-help', exchange.status === 'pending' ? 'Generating…' : exchange.status === 'interrupted' ? 'Interrupted when Cue closed. This partial answer is not used as memory.' : 'Answer failed. ' + (exchange.error || 'Try the question again.')));
+      if (exchange.status !== 'complete') row.append(element('p', 'history-help', exchange.status === 'pending' ? 'Generating…' : exchange.status === 'cancelled' ? 'Stopped by you. This partial answer is not used as memory.' : exchange.status === 'interrupted' ? 'Interrupted when Cue closed. This partial answer is not used as memory.' : 'Answer failed. ' + (exchange.error || 'Try the question again.')));
       return row;
     }
     function budgetDescription(chat) {
@@ -107,6 +107,11 @@
         button('Memory', () => memoryEditor(chat)),
         button('Delete', async () => { await mutate('trash', chat.id, null, 'chats'); selectedId = null; await load(); notice.textContent = 'Chat moved to Trash. You can restore it there.'; }, 'history-button history-danger'));
       actions.querySelector('button').id = 'history-continue';
+      const recall = button(chat.contextEnabled === false ? 'Context off' : 'Context on', async () => {
+        await mutate('context', chat.id, chat.contextEnabled === false, 'chats'); await load();
+      });
+      recall.id = 'history-context-toggle'; recall.setAttribute('aria-pressed', String(chat.contextEnabled !== false));
+      actions.append(recall);
       content.append(actions, element('p', 'session-meta', metadata(chat, 'chats')),
         element('p', 'history-help', budgetDescription(chat)),
         element('p', 'history-help', 'Estimated text input stays below 2× the same fresh prompt, with at most 1,800 added tokens. Actual cost varies by model, output, reasoning and cache pricing.'));

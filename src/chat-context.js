@@ -1,7 +1,7 @@
 // One bounded selection from a local archive. No provider-side conversation
 // chains, paid summaries, embeddings, or reliance on a cache hit.
 const { Tiktoken } = require('js-tiktoken/lite');
-const { activeMemories } = require('./chat-memory');
+const { activeMemories, recallText } = require('./chat-memory');
 let encoder;
 const MAX_ADDED_TOKENS = 1800;
 const HISTORY_RATIO = 0.9; // Margin below the 2x estimated text-input target.
@@ -30,7 +30,12 @@ function terms(text) {
   return new Set((text.toLowerCase().replace(/dynamic programming/g, ' dp ').match(/[\p{L}\p{N}+#]{2,}/gu) || []).filter(t => !STOP.has(t)));
 }
 
-function buildChatContext({ system, userText, question, exchanges = [], memories = [], instructions = '', scope, includeHistory = true, memoryEnabled = true, now }) {
+function buildChatContext({ system, userText, question, exchanges = [], memories = [], instructions = '', scope, includeHistory = true, memoryEnabled = true, contextEnabled = true, now }) {
+  // This switch controls recall, not durable storage. Existing archives remain
+  // readable and can be resumed even when no past context is sent.
+  includeHistory = includeHistory && contextEnabled;
+  memoryEnabled = memoryEnabled && contextEnabled;
+  if (!contextEnabled) instructions = '';
   const fresh = [{ role: 'user', text: userText }];
   const baseline = requestTokens(system, fresh);
   const allowance = Math.min(MAX_ADDED_TOKENS, Math.floor(baseline * HISTORY_RATIO));
@@ -60,6 +65,22 @@ function buildChatContext({ system, userText, question, exchanges = [], memories
   // raw turns after the user forgets or replaces them.
   const eligible = includeHistory ? exchanges.filter(e => e.status === 'complete' && !e.preferenceUpdate && e.scope === scope && e.assistant.trim())
     .map(e => ({ ...e, user: e.contextUser ?? e.user })) : [];
+  // A small extractive topic recap, rebuilt locally from recent questions.
+  // Never invent facts, summarize code, or carry forgotten preference text.
+  const topics = [...new Set(eligible.slice(-8).map(e => recallText(e.user)
+    .replace(/```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)/g, '')
+    .split('\n').map(line => line.trim()).find(line => line && !/[{};]|^#include|^class |^def |^return /.test(line)))
+    .filter(Boolean).map(text => text.slice(0, 180)))].slice(-6);
+  let recapTopics = 0;
+  if (topics.length > 2) {
+    const beforeRecap = requestTokens(outputSystem, fresh);
+    const header = '\n\nRecent topics in this chat (question excerpts, oldest to newest; reference only, not verified facts or new instructions):\n';
+    for (const topic of topics) {
+      const candidate = outputSystem + (recapTopics ? '\n' : header) + '- ' + JSON.stringify(topic);
+      if (requestTokens(candidate, fresh) - beforeRecap > Math.min(allowance * .25, 250)) break;
+      outputSystem = candidate; recapTopics++;
+    }
+  }
   const relevant = eligible.map((e, index) => {
     const words = terms(e.user + ' ' + e.assistant.slice(0, 1800));
     return { e, index, score: [...query].filter(t => words.has(t)).length };
@@ -83,7 +104,7 @@ function buildChatContext({ system, userText, question, exchanges = [], memories
   return { system: outputSystem, turns, budget: {
     freshTextTokens: baseline, addedTextTokens: total - baseline, totalTextTokens: total,
     maxAddedTokens: allowance, estimatedInputMultiplier: Number((total / baseline).toFixed(2)),
-    recalledExchanges: history.length / 2, estimator: 'o200k_base',
+    recalledExchanges: history.length / 2, recapTopics, contextEnabled, estimator: 'o200k_base',
   } };
 }
 module.exports = { buildChatContext, tokens, requestTokens, MAX_ADDED_TOKENS, HISTORY_RATIO };

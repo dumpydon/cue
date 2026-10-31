@@ -67,3 +67,21 @@ test('VAD retains samples split across sub-frame PCM chunks', () => {
   for (let i = 0; i < pcm.length; i += 256) vad.processChunk(pcm.subarray(i, i + 256));
   assert.equal(ends, 1);
 });
+
+test('one failed speech segment cannot block later completed sentences',async()=>{
+ const h=await setup();const errors=[];h.stt.onError=error=>errors.push(error);
+ h.event({type:'input_audio_buffer.committed',item_id:'bad'});h.event({type:'input_audio_buffer.committed',item_id:'good'});
+ h.event(delta('bad','Unreliable partial'));h.event(final('good','The next question is about Redis.'));
+ assert.deepEqual(h.finals,[]);
+ h.event({type:'conversation.item.input_audio_transcription.failed',item_id:'bad',error:{code:'transcription_failed',message:'One segment failed'}});
+ assert.deepEqual(h.finals,['The next question is about Redis.']);assert.equal(errors[0].recoverable,true);assert.equal(h.interims.at(-1),'');
+ h.event(final('bad','Late invalid duplicate'));assert.equal(h.finals.length,1);h.stt.disconnect();
+});
+
+test('a congested speech socket cannot keep accepting an unbounded audio backlog',async()=>{
+ const h=await setup();h.event({type:'session.updated'});const errors=[];h.stt.onError=error=>errors.push(error);
+ h.ws.bufferedAmount=2*1024*1024;
+ for(let i=0;i<50;i++)h.stt.sendAudio(tone(320));
+ assert.equal(h.ws.sent.filter(e=>e.type==='input_audio_buffer.append').length,0);assert.equal(errors.length,1);assert.equal(errors[0].code,'STT_BACKPRESSURE');
+ h.ws.bufferedAmount=0;h.stt.sendAudio(tone(320));assert.equal(h.ws.sent.filter(e=>e.type==='input_audio_buffer.append').length,1);h.stt.disconnect();
+});

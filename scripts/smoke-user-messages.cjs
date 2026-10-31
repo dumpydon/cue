@@ -97,6 +97,14 @@ app.on('browser-window-created', (_event, win) => {
       assert.equal(layout.whitespace, 'pre-wrap'); assert.equal(layout.select, 'text');
       assert.ok(Math.abs(layout.height - layout.line * 6) <= 1, 'preview shows six rendered lines');
       assert.ok(layout.full > layout.height * 3); assert.equal(layout.toggle, true); assert.equal(layout.expanded, 'false');
+      assert.equal(await js('document.querySelector(".user-message-toggle .user-message-chevron svg").getAttribute("viewBox")'),'0 0 24 24','Show more has the down chevron');
+      assert.equal(await js('document.querySelector(".user-message-edit").disabled'),true,'edit is disabled while an answer is running');
+      await js('document.querySelector("#input").focus()');
+      assert.equal(await js('getComputedStyle(document.querySelector(".user-message-actions")).opacity'),'0','message actions are hidden at rest');
+      await js('document.querySelector(".user-message-copy").focus()');
+      assert.equal(await js('getComputedStyle(document.querySelector(".user-message-actions")).opacity'),'1','keyboard focus reveals actions');
+      assert.equal(await js('document.querySelectorAll(".user-message-actions button").length'),2,'only Copy and Edit');
+      assert.ok(await js('(()=>{const actions=document.querySelector(".user-message-actions").getBoundingClientRect(),body=document.querySelector(".user-message-body").getBoundingClientRect();return actions.top>=body.bottom})()'),'actions sit below the bubble');
       await js('document.querySelector(".user-message-copy").click()');
       await until(() => copies.length === 1, 'copy collapsed message');
       assert.equal(copies[0], prompt, 'Copy includes hidden lines with exact whitespace');
@@ -152,6 +160,40 @@ app.on('browser-window-created', (_event, win) => {
       assert.equal(await js('document.querySelector(".user-message-toggle").getAttribute("aria-expanded")'), 'false');
       assert.equal(await js('document.querySelector(".user-message-text").textContent'), prompt);
 
+      await js('document.querySelector("#input").focus();document.querySelector(".user-message-body").scrollIntoView({block:"center"})');
+      const hoverPoint=await js('(()=>{const r=document.querySelector(".user-message-body").getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+12)}})()');
+      wc.sendInputEvent({type:'mouseMove',...hoverPoint});
+      await until(()=>js('getComputedStyle(document.querySelector(".user-message-actions")).opacity==="1"'),'real mouse hover reveals actions');
+      await until(()=>js('document.querySelector(".user-message-copy").getAttribute("aria-label")==="Copy message"'),'copy feedback returns to the icon');
+      await screenshot('message-hover-actions');
+      wc.sendInputEvent({type:'mouseMove',x:1,y:1});
+      await until(()=>js('getComputedStyle(document.querySelector(".user-message-actions")).opacity==="0"'),'mouse exit hides actions');
+      // Edit works on an exact copy and never overwrites the saved original or a current draft.
+      const originalRequestCount=requests.length;
+      await js('document.querySelector("#input").value="  Keep my unfinished draft\\n  with spaces.  ";document.querySelector("#input").dispatchEvent(new Event("input"));document.querySelector(".user-message-edit").click()');
+      await until(()=>js('!document.querySelector("#message-edit-banner").hidden'),'edit banner');
+      assert.equal(await js('document.querySelector("#input").value'),prompt,'edit preserves the full original text');
+      assert.equal(requests.length,originalRequestCount,'editing alone never calls a provider');
+      await js('document.querySelector("#message-edit-cancel").click()');
+      assert.equal(await js('document.querySelector("#input").value'),'  Keep my unfinished draft\n  with spaces.  ','Cancel restores the previous draft');
+      await js('document.querySelector(".user-message-edit").click()');
+      const edited=prompt+'\nExplain the complexity in one paragraph.';
+      const revisedRequest=await post(edited);
+      assert.ok(revisedRequest.turns.at(-1).text.includes(edited),'revised text is sent through the normal request path');
+      await done();
+      assert.equal(await js('document.querySelector("#input").value'),'  Keep my unfinished draft\n  with spaces.  ','resending also restores the unfinished draft');
+      assert.equal(await js('document.querySelector("#message-edit-banner").hidden'),true);
+      assert.equal(await js('document.querySelector(".user-message-text").textContent'),prompt,'the original message is preserved');
+      assert.equal((await js('cue.chatsState()')).chat.exchanges[0].user,prompt,'durable original stays intact');
+      await js('document.querySelector(".user-message-edit").click();document.querySelector("#input").dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}))');
+      assert.equal(await js('document.querySelector("#message-edit-banner").hidden'),true,'Escape cancels editing');
+      const editedChat=(await js('cue.chatsState()')).chat.id;
+      await js('document.querySelector(".user-message-edit").click()');await screenshot('message-edit-composer');
+      await reset();assert.equal(await js('document.querySelector("#message-edit-banner").hidden'),true,'switching chats clears the edit mode');
+      await js(`cue.chatMutate('activate',${JSON.stringify(editedChat)})`);
+      await until(()=>js('!!document.querySelector(".user-message-edit")'),'restored chat has edit controls');
+      assert.equal(await js('document.querySelector("#input").value'),'  Keep my unfinished draft\n  with spaces.  ','switching back keeps the original draft');
+      await js('document.querySelector(".user-message-edit").click()');assert.equal(await js('document.querySelector("#input").value'),prompt,'restored messages edit exact text');await js('document.querySelector("#message-edit-cancel").click()');
       await reset();
       await post('A short question.'); await done();
       assert.equal(await js('document.querySelector(".user-message-toggle").hidden'), true, 'short messages have no expansion control');
@@ -179,7 +221,7 @@ app.on('browser-window-created', (_event, win) => {
       assert.equal(await js('document.querySelector(".user-message-copy").disabled'), false, 'copy can be retried');
       assert.deepEqual(external, [], 'sent messages fetch no external resources');
       clearTimeout(timeout);
-      console.log('PASS: exact prompt whitespace, six-line previews, expand/collapse, full and selected-text copy, native context menu, mouse selection without dragging, resize/zoom, safe literal content, clipboard retry and streaming scroll stability.');
+      console.log('PASS: hover/focus message actions, chevron, edit/resend/cancel with draft preservation, exact prompt whitespace, six-line previews, expand/collapse, full and selected-text copy, native context menu, mouse selection without dragging, resize/zoom, safe literal content, clipboard retry and streaming scroll stability.');
       app.quit();
     } catch (error) { fail(error); }
   });

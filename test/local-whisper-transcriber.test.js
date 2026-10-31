@@ -91,3 +91,12 @@ test('bounds shutdown drain time before aborting an in-flight inference', async 
   assert.deepEqual(reportedErrors, []);
   assert.deepEqual(stopOptions, [{ force: true }]);
 });
+
+test('slow local inference has a bounded queue and no late transcript after forced stop',async()=>{
+ let release;const errors=[],texts=[];
+ const local=new LocalWhisperTranscriber({maxPendingJobs:2,sessionOptions:{},sessionFactory:()=>({async start(){},transcribe:()=>new Promise(resolve=>{release=resolve;}),abortInferences(){},async stop(){}}),segmenterFactory:options=>({push:pcm=>options.onUtterance(options.channel,pcm),stop(){}}),onError:error=>errors.push(error),onTranscript:(_,text)=>texts.push(text)});
+ await local.start();for(let i=0;i<1000;i++)local.push(i%2?'you':'them',Buffer.alloc(3200));
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(local.pendingJobs,2);assert.equal(errors.length,1);assert.equal(errors[0].code,'LOCAL_AUDIO_BACKLOG');
+ await local.forceStop();release('Late discarded transcript');await local.queueTail;
+ assert.deepEqual(texts,[]);assert.equal(local.pendingJobs,0);
+});

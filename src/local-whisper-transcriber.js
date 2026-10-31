@@ -11,6 +11,7 @@ class LocalWhisperTranscriber {
     sessionFactory = (options) => new WhisperServerSession(options),
     segmenterFactory = (options) => new UtteranceSegmenter(options),
     drainTimeoutMs = DEFAULT_DRAIN_TIMEOUT_MS,
+    maxPendingJobs = 4,
     onTranscript = () => {},
     onSpeechState = () => {},
     onStatus = () => {},
@@ -19,6 +20,8 @@ class LocalWhisperTranscriber {
     this.session = sessionFactory({ ...sessionOptions, onState: onStatus });
     this.segmenterFactory = segmenterFactory;
     this.drainTimeoutMs = drainTimeoutMs;
+    this.maxPendingJobs = Math.max(1, maxPendingJobs);
+    this.backlogReported = false;
     this.onTranscript = onTranscript;
     this.onSpeechState = onSpeechState;
     this.onStatus = onStatus;
@@ -80,13 +83,20 @@ class LocalWhisperTranscriber {
   }
 
   _enqueue(channel, pcm) {
+    if (this.pendingJobs >= this.maxPendingJobs) {
+      if (!this.backlogReported) {
+        this.backlogReported = true;
+        this.onError(Object.assign(new Error('Local transcription is behind. Some audio was skipped; choose a faster Whisper model to keep up.'), { code: 'LOCAL_AUDIO_BACKLOG' }));
+      }
+      return Promise.resolve();
+    }
     this.pendingJobs += 1;
     this.onStatus({ status: 'transcribing', channel, pending: this.pendingJobs });
 
     const job = this.queueTail.then(async () => {
       if (this.discardPendingJobs) return;
       const text = await this.session.transcribe(pcm);
-      if (text) this.onTranscript(channel, text);
+      if (text && !this.discardPendingJobs) this.onTranscript(channel, text);
     });
 
     this.queueTail = job
@@ -95,6 +105,7 @@ class LocalWhisperTranscriber {
       })
       .finally(() => {
         this.pendingJobs -= 1;
+        if (this.pendingJobs < 2) this.backlogReported = false;
         if (this.acceptingAudio && this.pendingJobs === 0) {
           this.onStatus({ status: 'ready', message: 'Local Whisper is ready.' });
         }

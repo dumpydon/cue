@@ -72,16 +72,20 @@ app.on('browser-window-created',(_,win)=>{
    if(phase==='read'){
     const saved=JSON.parse(fs.readFileSync(path.join(profile,'fixture.json'),'utf8'));
     const snapshot=await state();assert.equal(snapshot.chat.id,saved.chatId);assert.equal(snapshot.chat.title,'LeetCode');
-    assert.equal(snapshot.chat.total,54);assert.equal(snapshot.chat.exchanges.at(-1).status,'interrupted');
+    assert.equal(snapshot.chat.total,55);assert.equal(snapshot.chat.exchanges.at(-1).status,'interrupted');
     assert.match(snapshot.chat.exchanges.at(-1).assistant,/Partial response/);
     assert.match(await js('document.querySelector("#messages").textContent'),/Answer interrupted/);
     assert.equal(await js('document.querySelectorAll(".response-group").length'),30,'restore renders only the newest page');
     await js('document.querySelector(".history-load-earlier").click()');
-    await until(()=>js('document.querySelectorAll(".response-group").length===54'),'earlier answers load');
+    await until(()=>js('document.querySelectorAll(".response-group").length===55'),'earlier answers load');
     assert.match(await js('document.querySelector("#messages").textContent'),/coin change/);
+    assert.equal(snapshot.chat.contextEnabled,false,'context setting survives a second process');
+    assert.equal(await js('document.querySelector("#chat-context-toggle").textContent'),'Context off');
+    await js('document.querySelector("#chat-context-toggle").click()');
+    await until(async()=>(await state()).chat.contextEnabled===true,'re-enable recall after restart');
     const request=await ask('Solve another DP problem.');
     assert.match(request.system,/bottom-up/);assert.doesNotMatch(JSON.stringify(request.turns),/Partial response|SECRET_RECORDING_CONTEXT|RAG_ONLY/);
-    assert.equal((await state()).chat.total,55);
+    assert.equal((await state()).chat.total,56);
     await screenshot('restored-thread');
     assert.deepEqual(external,[]);clearTimeout(deadline);console.log('PASS: second-process restoration, pagination, interrupted-answer recovery and persistent isolated memory.');app.quit();return;
    }
@@ -144,6 +148,11 @@ app.on('browser-window-created',(_,win)=>{
    await mutate('trash',rag);assert.equal((await state()).chat,null);assert.equal((await js('window.cue.chatsList({trash:true})')).length,1);
    await mutate('restore',rag);await mutate('activate',leetcode);
    assert.equal((await state()).chat.title,'LeetCode');assert.match((await state()).chat.memories[0].text,/bottom-up/);
+   await js('document.querySelector("#chat-context-toggle").click()');
+   await until(async()=>(await state()).chat.contextEnabled===false,'turn all chat recall off');
+   const offRequest=await ask('Fresh standalone question with recall off.');
+   assert.equal(offRequest.turns.length,1);assert.doesNotMatch(offRequest.system,/bottom-up|worked example|Recent topics in this chat/);
+   assert.equal((await state()).chat.exchanges.at(-1).budget.addedTextTokens,0);
    // Rapid thread switches and late results cannot attach to a different chat.
    hold=true;await ask('Pending response for restart test.',{pending:true});await until(()=>!!release,'held response');
    assert.equal((await js('window.cue.resetAnswerThread()')).ok,false);

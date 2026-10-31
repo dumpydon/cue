@@ -83,12 +83,12 @@ markdown.renderer.rules.link_close = () => '</span>';
 markdown.renderer.rules.image = (tokens, index) => escape(tokens[index].content);
 markdown.renderer.rules.table_open = () => '<div class="answer-table"><table>\n';
 markdown.renderer.rules.table_close = () => '</table></div>\n';
-markdown.renderer.rules.fence = (tokens, index) => {
+markdown.renderer.rules.fence = (tokens, index, _options, environment) => {
   const token = tokens[index], tag = (token.info || '').trim().split(/\s+/)[0].toLowerCase();
   if (['math', 'latex', 'tex'].includes(tag)) return `<div class="answer-equation">${math(token.content.trim(), true)}</div>\n`;
   let language = ALIASES[tag] || tag, value = escape(token.content);
   try {
-    if (token.content.length <= 60000) {
+    if (token.content.length <= (environment?.streaming ? 8000 : 60000)) {
       if (language && hljs.getLanguage(language)) value = hljs.highlight(token.content, { language, ignoreIllegals: true }).value;
       else if (!tag) {
         const detected = hljs.highlightAuto(token.content, AUTO_LANGUAGES);
@@ -105,9 +105,9 @@ markdown.renderer.rules.fence = (tokens, index) => {
 };
 markdown.renderer.rules.code_block = markdown.renderer.rules.fence;
 
-function render(text) {
+function render(text, { streaming = false } = {}) {
   const source = String(text || '');
-  try { return markdown.render(source); }
+  try { return markdown.render(source, { streaming }); }
   catch (_) { return `<p class="answer-plain">${escape(source)}</p>`; }
 }
 

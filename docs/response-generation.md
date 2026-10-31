@@ -16,6 +16,11 @@ enter model context. A crash can lose the final uncheckpointed fraction of a
 partial answer. Unreadable files are preserved and reported, not overwritten.
 The catalog is rebuilt from chat files so a lost index cannot hide saved chats.
 
+During generation the Send button becomes **Stop**. Stopped and failed partial
+answers remain copyable, and a draft for the next question is kept. A renderer
+failure can restore the chat automatically with audio paused. See
+[answer reliability](answer-reliability.md) for deadlines, overload limits and tests.
+
 **New chat** archives the current conversation without ending live capture.
 Switching or deleting chats is blocked during generation. Clearing the transcript
 starts a fresh chat and invalidates late streaming events. Threads remember their
@@ -30,7 +35,35 @@ chat files. User-supplied text is retained as typed. The renderer initially load
 30 exchanges and provides **Load earlier messages**, rather than rendering every
 old code block at startup. History search matches names and latest previews.
 
+## Continuing a saved chat
+
+Open **History → Chats**, choose an older conversation, and select **Continue chat**.
+The archive has no seven-day expiry. Full messages remain on this Mac; only a
+bounded selection goes to the provider. The **Context on/off** switch beside
+Memory (also in History details) is saved per chat. Off excludes past answers,
+chat instructions and saved preferences, and stops automatic preference learning;
+it does not erase messages. Turning it on restores bounded recall. New chats and
+existing chats default to on. Recording and mode context remain separate.
+
+With context on, Cue builds a local extractive recap of up to six recent question
+topics, at most 250 estimated tokens, alongside recent and relevant earlier answer
+excerpts. This is a topic index, not an AI-written semantic summary or model
+training. It excludes failed/interrupted answers, code blocks and explicit
+preference text. Recap, preferences and recalled answers share the same existing
+1,800-token maximum and 90%-of-fresh-input allowance; no extra summary or embedding
+API calls are made. The limit covers added chat recall, not the current question,
+mode instructions, attached files, images or generated output.
+
 ## Memory and cost budget
+
+Meeting mode context accepts up to **64,000 characters**, separately from attached
+files and chat memory. The editor counts characters, not model tokens. The active
+mode's saved context and extracted file text are included in each answer request;
+they do not use embeddings or paid indexing. Increasing the available capacity
+does not change the bill for unchanged text. Adding more text increases input
+usage; the dollar difference depends on the selected model, actual token count,
+cache billing, and generated output. The chat-history budget below is separate
+from this user-supplied mode context.
 
 The **Memory** button opens editable instructions and saved preferences for that
 chat. A conservative local parser recognizes explicit statements such as “I prefer

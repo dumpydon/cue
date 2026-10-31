@@ -25,6 +25,10 @@ const { createLLM } = require('./src/llm');
 const { MODES } = require('./src/prompts');
 const { questionTranscript, responseTokenBudget } = require('./src/response-context');
 const { responseScope } = require('./src/response-thread');
+const { createAnswerRun } = require('./src/answer-run');
+const { createRendererRecovery } = require('./src/renderer-recovery');
+const { createWorkspaceVisibility } = require('./src/workspace-visibility');
+const { pcmFrame, queuePCM } = require('./src/audio-buffer');
 const { createChatStore } = require('./src/chat-store');
 const { buildChatContext } = require('./src/chat-context');
 const { rms16 } = require('./src/wav');
@@ -139,7 +143,9 @@ const transcript = []; // { channel, text, ts } — capped at MAX_TRANSCRIPT_TUR
 const liveTranscript = { you: null, them: null };
 let chatStore = null;
 let chatGeneration = 0;
-function chatSnapshot() { return { chat: chatStore?.page(), warnings: chatStore?.warnings || [], busy: state.busy }; }
+let activeAnswer = null, captureEpoch = 0, recoveryNotice = '';
+function answerState() { return { busy: state.busy, requestId: activeAnswer?.id || null }; }
+function chatSnapshot(metadata = false) { return { chat: metadata ? chatStore?.metadata() : chatStore?.page(), warnings: chatStore?.warnings || [], busy: state.busy }; }
 function publishChat() { send('chats:active', chatSnapshot()); }
 function newChat() {
   const settings = store.getSettings();
@@ -205,7 +211,7 @@ function pushTranscript(turn) {
 }
 
 function send(channel, data) {
-  if (win && !win.isDestroyed()) win.webContents.send(channel, data);
+  if (win && !win.isDestroyed() && !win.webContents.isDestroyed() && !win.webContents.isCrashed()) win.webContents.send(channel, data);
   if (channel === 'capture:state') trayController?.sync();
 }
 
@@ -259,6 +265,7 @@ async function startLocalWhisper(settings) {
       },
       onStatus: (status) => send('stt:status', { provider: 'local', ...status }),
       onError: (error) => {
+        if (error.code === 'LOCAL_AUDIO_BACKLOG') { send('status', { message: error.message }); return; }
         sttDisabled = true;
         console.log('[local-whisper] error', error && error.message);
         send('stt:status', { provider: 'local', status: 'error' });
@@ -328,6 +335,15 @@ function setScreenShareProtection(enabled) {
   trayController?.sync();
   return status;
 }
+
+const workspaceVisibility = createWorkspaceVisibility({
+  getWindow: () => win,
+  readPreference: () => store.getSettings().followAllWorkspaces,
+  writePreference: followAll => {
+    store.setSettings({ followAllWorkspaces: followAll });
+    if (store.lastSaveError()) throw Error('Could not save Cue’s desktop mode. Check available disk space.');
+  }
+});
 
 function mainWindowVisible() {
   return !!win && !win.isDestroyed() && win.isVisible() && !win.isMinimized()
@@ -455,7 +471,7 @@ function createWindow() {
   protection.applyToWindow(win);
 
   win.setAlwaysOnTop(true, 'screen-saver', 1);
-  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  workspaceVisibility.applyToWindow(win);
   if (isMac && typeof win.setHiddenInMissionControl === 'function') win.setHiddenInMissionControl(true);
 
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
@@ -492,6 +508,7 @@ function createWindow() {
     win.showInactive();
     syncShortcuts();
     win.setTitle('Cue');
+    if (recoveryNotice) { send('status', { message: recoveryNotice }); recoveryNotice = ''; }
     if (restoredTurns.length) {
       // A meeting was in progress when cue last exited: put its transcript back
       // in the sidebar so Recap / Follow-up pick up where the conversation was.
@@ -515,12 +532,32 @@ function createWindow() {
       });
     }
   });
+  const ownedWindow = win;
+  const recovery = createRendererRecovery({
+    recover: () => { if (!ownedWindow.isDestroyed()) ownedWindow.webContents.reload(); },
+    exhausted: () => {
+      recoveryNotice = 'Cue could not recover its answer window. Quit and reopen Cue; saved chats remain on this device.';
+      dialog.showErrorBox('Cue needs to restart', recoveryNotice);
+    }
+  });
+  ownedWindow.on('closed', () => recovery.dispose());
   win.webContents.on('render-process-gone', (_e, d) => {
-    shortcutRendererReady = false;
-    syncShortcuts();
-    stopWindowInteraction();
-    console.log('[cue] renderer gone', JSON.stringify(d));
-    recordEvent({ level: 'fatal', event: 'renderer_gone', code: d && d.reason, msg: 'renderer process ended: ' + JSON.stringify(d), frame: 'BrowserWindow' });
+    shortcutRendererReady = false; syncShortcuts(); stopWindowInteraction();
+    activeAnswer?.cancel('ANSWER_RENDERER_GONE', 'Answer interrupted when the window restarted. Your partial answer is saved.');
+    // A recovered window must never silently restart microphone/call capture.
+    captureEpoch++; desiredCaptureState = false; state.capturing = false;
+    stopFlushLoop(); stopSlideLoop();
+    stopStreamingSTT().catch(() => {});
+    localWhisperTranscriber?.forceStop().catch(() => {}); localWhisperTranscriber = null; activeWhisperModelId = null;
+    buffers.you = []; buffers.them = [];
+    Object.values(batchTranscriptions).forEach(controller => controller?.abort(Object.assign(new Error('Audio stopped while Cue recovered.'), { code: 'STT_CANCELLED' })));
+    liveTranscript.you = null; liveTranscript.them = null;
+    vad.you.reset(); vad.them.reset(); ringBuffers.you.clear(); ringBuffers.them.clear();
+    restoredTurns = transcript.slice();
+    try { chatStore?.flush(); meetingMemory?.flush(); } catch { /* Existing durable checkpoints remain available. */ }
+    recoveryNotice = 'Cue recovered its answer window. Your chat was restored. Audio is paused; start a session when ready.';
+    recordEvent({ level: 'error', event: 'renderer_gone', code: d?.reason, msg: 'Answer window restarted after renderer failure.', frame: 'BrowserWindow' });
+    if (!app.isQuitting && !quitPending) recovery.crashed();
   });
   win.webContents.on('did-start-loading', () => {
     shortcutRendererReady = false;
@@ -531,6 +568,8 @@ function createWindow() {
 
 // -------- STT flushing (batch mode fallback) --------
 const flushTasks = { you: null, them: null };
+const batchTranscriptions = { you: null, them: null };
+const audioBacklogReported = { you: false, them: false };
 function flushChannel(channel) {
   if (flushTasks[channel]) return flushTasks[channel];
   const task = flushChannelOnce(channel).finally(() => { if (flushTasks[channel] === task) flushTasks[channel] = null; });
@@ -543,7 +582,7 @@ async function flushChannelOnce(channel) {
   const chunks = buffers[channel];
   if (!chunks.length) return;
   const pcm = Buffer.concat(chunks);
-  buffers[channel] = [];
+  buffers[channel] = []; audioBacklogReported[channel] = false;
   if (pcm.length < MIN_BYTES) return;
   if (rms16(pcm) < RMS_GATE) return; // silence gate
 
@@ -555,8 +594,11 @@ async function flushChannelOnce(channel) {
       if (!sttDisabled) { sttDisabled = true; send('status', { message: 'No transcription key set. Add an OpenAI (Whisper) or Groq key in Settings to enable listening. Screen/LeetCode features work without it.' }); }
       return;
     }
-    const res = await stt.transcribe(pcm);
+    const controller = new AbortController();
+    batchTranscriptions[channel] = controller;
+    const res = await stt.transcribe(pcm, { signal: controller.signal });
     if (res.error) {
+      if (res.error.code === 'STT_CANCELLED') return;
       handleSttError(res.error, settings);
       return;
     }
@@ -567,7 +609,7 @@ async function flushChannelOnce(channel) {
     console.log('[stt] error', e && e.message);
     recordEvent({ level: 'error', event: 'stt_failed', msg: e && e.message ? e.message : String(e), frame: 'flushChannel', context: { channel } });
   } finally {
-    state.transcribing[channel] = false;
+    state.transcribing[channel] = false; batchTranscriptions[channel] = null;
   }
 }
 
@@ -627,6 +669,10 @@ function initStreamingSTT() {
         // and start the batch loop alongside them (double transcription).
         if (instance && streamingSTT[channel] !== instance) return;
         if (!state.capturing) return; // A late error while draining must not restart batch capture.
+        if (err.recoverable) {
+          send('status', { message: 'One speech segment was not transcribed. Listening continues; repeat the missed part if needed.' });
+          return;
+        }
         console.log('[streaming-stt] error', err.provider, err.message);
         const batchFallbackAvailable = createSTT(settings).available;
         stopStreamingSTT(); // close WebSockets and clear keep-alive intervals
@@ -816,7 +862,8 @@ function noteAudioLevel(channel, buf) {
 
 function routeAudio(channel, pcmBuffer) {
   if (sttDisabled) return;
-  const buf = Buffer.from(pcmBuffer);
+  const buf = pcmFrame(pcmBuffer);
+  if (!buf) return;
   noteAudioLevel(channel, buf);
 
   if (localWhisperTranscriber) {
@@ -835,7 +882,10 @@ function routeAudio(channel, pcmBuffer) {
     streamingSTT[channel].sendAudio(pcmBuffer);
   } else {
     // Batch mode: accumulate in buffers for periodic flush
-    buffers[channel].push(buf);
+    if (queuePCM(buffers[channel], buf) && !audioBacklogReported[channel]) {
+      audioBacklogReported[channel] = true;
+      send('status', { message: 'Transcription is behind. Older queued audio was skipped to keep Cue responsive; check the speech provider connection.' });
+    }
   }
 }
 
@@ -933,26 +983,30 @@ async function setCapturing(active) {
 
 // -------- feature runner --------
 async function runFeature(mode, userText) {
-  if (state.busy) return;
+  if (state.busy || quitPending) return;
   if (!Object.hasOwn(MODES, mode)) return;
+  const run = createAnswerRun();
+  activeAnswer = run;
   const def = MODES[mode];
   userText = typeof userText === 'string' ? userText.slice(0, 32000) : '';
   if (!userText.trim()) userText = '';
   state.busy = true;
+  send('answer:state', answerState());
   let streamSettled = false; // drop stray tokens from a stream we've already abandoned
   let threadVersion, attempt, contextBudget, finalAnswer, failureMessage;
-  const current = () => threadVersion === chatGeneration && attempt?.chatId === chatStore?.activeId;
-  const fail = (message, action) => { failureMessage = message; send('llm:error', { message, action }); };
+  const current = () => threadVersion === chatGeneration && attempt?.chatId === chatStore?.activeId && activeAnswer === run && !run.signal.aborted;
+  const fail = (message, action) => { failureMessage = message; send('llm:error', { message, action, requestId: run.id }); };
   try {
     // Finish pending mode edits before a toolbar action or global shortcut
     // takes its settings snapshot. A failed save keeps the draft for retry.
     if (win && !win.isDestroyed()) {
-      const saved = await win.webContents.executeJavaScript('window.CueMeetingModeUI ? window.CueMeetingModeUI.flush() : true');
-      if (!saved) { send('llm:error', { message: 'Save or correct your meeting mode edits before asking Cue.' }); return; }
+      const saved = await run.stage(win.webContents.executeJavaScript('window.CueMeetingModeUI ? window.CueMeetingModeUI.flush() : true'), 10000, 'Saving your mode context took too long. Your draft is kept; try again.');
+      if (!saved) { fail('Save or correct your meeting mode edits before asking Cue.'); return; }
+      run.check();
     }
     const settings = store.getSettings();
     const modeId = settings.meetingModes?.activeId || 'general';
-    if (!chatStore.activeId || chatStore.get().modeId !== modeId) newChat();
+    if (!chatStore.activeId || chatStore.metadata().modeId !== modeId) newChat();
     threadVersion = chatGeneration;
     const scope = responseScope(settings);
     const llm = createLLM(settings);
@@ -961,14 +1015,14 @@ async function runFeature(mode, userText) {
       : (['ask', 'answerThis'].includes(mode) ? userText : mode === 'leetcode' ? 'Solve what’s on screen' : 'Smart assist');
     // Typed chats never inherit a different recording merely because it was
     // the last one opened. An active call remains available to all live actions.
-    const linkedMeeting = chatStore.get().meetingId === meetingMemory?.current?.id;
+    const linkedMeeting = chatStore.metadata().meetingId === meetingMemory?.current?.id;
     const capturedTranscript = mode === 'ask' && !state.capturing && !linkedMeeting ? [] : transcriptWithLiveSpeech();
     const contextTranscript = mode === 'answerThis' ? questionTranscript(capturedTranscript, userText) : capturedTranscript;
     const targetQuestion = ['ask', 'answerThis'].includes(mode) ? userText : '';
     const category = mode !== 'leetcode' ? detectCategory(contextTranscript, targetQuestion) : null;
     attempt = chatStore.begin({ user: userBubble || userText, mode, scope, category, small: def.small,
       meetingId: capturedTranscript.length ? meetingMemory?.current?.id : null });
-    send('llm:start', { userBubble, small: !!def.small, category, chat: chatStore.page(), exchangeId: attempt.exchangeId });
+    send('llm:start', { userBubble, small: !!def.small, category, chat: chatStore.metadata(), exchangeId: attempt.exchangeId, requestId: run.id });
 
     if (!llm.ready) {
       const message = llm.configurationError || ('Complete the ' + settings.provider + ' provider settings. Model: ' + (llm.model || 'unset') + '.');
@@ -1001,12 +1055,13 @@ async function runFeature(mode, userText) {
     const screenAllowed = getPermissionStatus().screen === 'granted';
     if (def.needsScreen && (mode !== 'ask' || screenAllowed)) {
       try {
-        imageDataUrl = await captureScreenshot();
+        imageDataUrl = await run.wait(captureScreenshot({ signal: run.signal }));
         if (!imageDataUrl) throw new Error('No screen source was available.');
       }
       catch (e) {
+        if (run.signal.aborted) throw run.signal.reason;
         recordEvent({ level: 'error', event: 'screen_capture_failed', msg: e && e.message ? e.message : String(e), frame: 'captureScreenshot', context: { mode } });
-        const message = process.platform === 'darwin'
+        const message = e?.code?.startsWith('SCREEN_CAPTURE_') ? e.message : process.platform === 'darwin'
           ? 'Screen capture needs permission — grant Screen Recording to cue in System Settings.'
           : process.platform === 'win32'
             ? 'Screen capture failed. Make sure cue is not blocked by Windows privacy or security software, then try again.'
@@ -1043,55 +1098,36 @@ async function runFeature(mode, userText) {
     const baseSystem = def.buildSystem ? def.buildSystem(contextBlock, settingsForPrompt.aiRules || '') : (def.system || '');
     const systemBase = appendModeContext(baseSystem, settings.meetingModes);
     const built = def.build({ transcript: contextTranscript, userText: userText || '' });
-    const chat = chatStore.get(attempt.chatId);
+    const chat = chatStore.context(attempt.chatId);
     const context = buildChatContext({ system: systemBase, userText: built, question: userText,
       exchanges: chat.exchanges.filter(e => e.mode !== 'recap'), memories: chat.memories,
-      instructions: chat.instructions, memoryEnabled: chat.memoryEnabled, scope,
+      instructions: chat.instructions, memoryEnabled: chat.memoryEnabled, contextEnabled: chat.contextEnabled, scope,
       includeHistory: mode === 'ask' });
     const { system, turns } = context;
     contextBudget = context.budget;
 
-    // Watchdog: a provider that stalls mid-stream would otherwise hang the await forever,
-    // leaving state.busy = true and wedging every later question until an app restart.
-    let watchdog = null;
-    let rearm = () => {};
-    const stalled = new Promise((_res, reject) => {
-      rearm = () => {
-        clearTimeout(watchdog);
-        watchdog = setTimeout(() => reject(new Error('the model stopped responding (timed out). Please try again.')), STREAM_INACTIVITY_MS);
-      };
-      rearm();
-    });
-    try {
-      let streamedAnswer = '';
-      const result = await Promise.race([
-        llm.stream({
-          system,
-          turns,
-          imageDataUrl,
-          maxTokens: responseTokenBudget(mode, settings.smart),
-          onToken: (t) => {
-            if (streamSettled || typeof t !== 'string') return;
-            streamedAnswer += t; rearm();
-            if (!current()) return;
-            chatStore.append(attempt, t);
-            send('llm:token', { text: t });
-          },
-          onResponse: settings.provider === publik.PUBLIK_PROVIDER ? (res) => publikNoteHeaders(res && res.headers) : undefined
-        }),
-        stalled
-      ]);
-      const answer = (typeof result === 'string' ? result : streamedAnswer).trim();
-      if (!answer) throw new Error('The model returned no answer. Try again, or choose a different model.');
-      if (current()) {
-        chatStore.finish(attempt, { answer, budget: contextBudget });
-        finalAnswer = answer;
-      }
-    } finally {
-      streamSettled = true;
-      clearTimeout(watchdog);
-    }
-    send('llm:done', { budget: contextBudget });
+    // Preparation, transport and output all share one cancellation signal.
+    run.check(); run.activity();
+    let streamedAnswer = '';
+    const result = await run.wait(llm.stream({
+      system, turns, imageDataUrl,
+      signal: run.signal, onProgress: () => run.activity(),
+      maxTokens: responseTokenBudget(mode, settings.smart),
+      onToken: text => {
+        if (streamSettled || typeof text !== 'string' || !current() || !run.token(text)) return;
+        streamedAnswer += text;
+        chatStore.append(attempt, text);
+        send('llm:token', { text, requestId: run.id });
+      },
+      onResponse: settings.provider === publik.PUBLIK_PROVIDER ? res => publikNoteHeaders(res?.headers) : undefined
+    }));
+    run.check();
+    const answer = (typeof result === 'string' ? result : streamedAnswer).trim();
+    if (!answer) throw new Error('The model returned no answer. Try again, or choose a different model.');
+    if (answer.length > 100000) throw new Error('The provider returned an oversized answer. Ask for a smaller section.');
+    if (current()) { chatStore.finish(attempt, { answer, budget: contextBudget }); finalAnswer = answer; }
+    streamSettled = true;
+    send('llm:done', { budget: contextBudget, requestId: run.id });
     try {
       store.recordModelUse(llm.provider, llm.model);
       send('models:changed', store.modelChoices(llm.provider));
@@ -1100,7 +1136,13 @@ async function runFeature(mode, userText) {
     // GET /wallet shortly after the answer — one request per answer, debounced.
     if (settings.provider === publik.PUBLIK_PROVIDER) publikScheduleWalletRefresh();
   } catch (e) {
-    if (attempt && !current()) { send('llm:done', {}); return; }
+    if (run.signal.aborted) {
+      failureMessage = run.signal.reason.message;
+      if (['ANSWER_CANCELLED', 'ANSWER_CONTEXT_CHANGED', 'ANSWER_RENDERER_GONE', 'ANSWER_APP_CLOSED'].includes(run.signal.reason.code)) {
+        send('llm:done', { message: failureMessage, interrupted: true, requestId: run.id }); return;
+      }
+    }
+    if (attempt && threadVersion !== chatGeneration) { send('llm:done', { requestId: run.id }); return; }
     recordEvent({ level: 'error', event: 'llm_failed', msg: e && e.message ? e.message : String(e), frame: 'runFeature', context: { mode, provider: store.getSettings().provider } });
     const action = e && e.action ? e.action : null;
     fail(e && e.message ? e.message : String(e), action);
@@ -1108,15 +1150,23 @@ async function runFeature(mode, userText) {
   } finally {
     streamSettled = true;
     if (attempt && !finalAnswer) {
-      try { chatStore.finish(attempt, { status: current() ? 'failed' : 'interrupted', error: failureMessage || 'Answer interrupted before completion.', budget: contextBudget }); }
+      try { chatStore.finish(attempt, { status: run.signal.reason?.code === 'ANSWER_CANCELLED' ? 'cancelled' : threadVersion !== chatGeneration || ['ANSWER_RENDERER_GONE','ANSWER_APP_CLOSED'].includes(run.signal.reason?.code) ? 'interrupted' : 'failed', error: failureMessage || 'Answer interrupted before completion.', budget: contextBudget }); }
       catch { send('status', { message: 'Could not save this answer. Check available disk space.' }); }
     }
-    state.busy = false;
+    run.finish();
+    if (activeAnswer === run) { activeAnswer = null; state.busy = false; }
+    send('answer:state', answerState());
     send('chats:changed', { activeId: chatStore?.activeId });
   }
 }
 
 // -------- IPC --------
+ipcMain.handle('workspace:get', event => { requireHistory(event); return workspaceVisibility.state(); });
+ipcMain.handle('workspace:set', (event, followAll) => {
+  requireHistory(event);
+  const status = workspaceVisibility.setFollowAll(followAll);
+  send('workspace:changed', status); return status;
+});
 // Redact on the way out, strip on the way in: the publik key never enters the
 // renderer, and the renderer's whole-object Save can never clobber it.
 ipcMain.handle('protection:get', () => protection.state());
@@ -1226,9 +1276,11 @@ ipcMain.handle('sessions:mutate', (event, action, id, title) => {
     meetingMemory.forget(id); transcript.splice(0); liveTranscript.you = null; liveTranscript.them = null;
     send('transcript:removed', {});
   }
+  send('chats:changed', { activeId: chatStore.activeId });
   return { ok: true };
 });
 ipcMain.handle('chats:state', event => { requireHistory(event); return chatSnapshot(); });
+ipcMain.handle('chats:summary', event => { requireHistory(event); return chatSnapshot(true); });
 ipcMain.handle('chats:list', (event, options) => { requireHistory(event); return chatStore.list({ trash: options?.trash === true, query: options?.query }); });
 ipcMain.handle('chats:get', (event, id, before) => { requireHistory(event); return chatStore.page(id, before); });
 ipcMain.handle('chats:mutate', async (event, action, id, payload) => {
@@ -1245,12 +1297,14 @@ ipcMain.handle('chats:mutate', async (event, action, id, payload) => {
     requireHistory(event, true);
     changeMeetingModes('activate', { id: chat.modeId });
     chatGeneration++; chatStore.activate(id); publishChat();
-  } else if (action === 'rename') { chatStore.rename(id, payload); send('chats:meta', chatSnapshot()); }
+  } else if (action === 'rename') { chatStore.rename(id, payload); send('chats:meta', chatSnapshot(true)); }
   else if (action === 'trash') {
     const wasActive = id === chatStore.activeId;
     chatStore.trash(id); if (wasActive) { chatGeneration++; publishChat(); }
   } else if (action === 'restore') chatStore.restore(id);
-  else if (action === 'memory') { chatStore.setMemory(id, payload); send('chats:meta', chatSnapshot()); }
+  else if (action === 'memory') { chatStore.setMemory(id, payload); send('chats:meta', chatSnapshot(true)); }
+  else if (action === 'context') { chatStore.setContextEnabled(id, payload); send('chats:meta', chatSnapshot(true)); }
+  else if (action === 'pin') { chatStore.pin(id, payload); send('chats:meta', chatSnapshot(true)); }
   else throw Error('Unknown chat action.');
   send('chats:changed', { activeId: chatStore.activeId });
   return { ok: true };
@@ -1467,6 +1521,7 @@ ipcMain.on('publik:open', (_e, url) => {
   shell.openExternal(target).catch(() => {});
 });
 ipcMain.handle('capture:toggle', () => {
+  const epoch = captureEpoch;
   const targetState = !desiredCaptureState;
   desiredCaptureState = targetState;
   if (!targetState && !state.capturing && localWhisperTranscriber) {
@@ -1474,7 +1529,7 @@ ipcMain.handle('capture:toggle', () => {
   }
   captureTransition = captureTransition
     .catch(() => state.capturing)
-    .then(() => setCapturing(targetState));
+    .then(() => epoch === captureEpoch ? setCapturing(targetState) : false);
   return captureTransition;
 });
 ipcMain.handle('capture:state', () => ({ active: state.capturing }));
@@ -1520,6 +1575,7 @@ ipcMain.handle('platform:info', () => ({
   winSupportsContentProtection: WIN_SUPPORTS_CONTENT_PROTECTION
 }));
 ipcMain.handle('transcript:clear', () => {
+  activeAnswer?.cancel('ANSWER_CONTEXT_CHANGED', 'Answer stopped because the conversation was cleared.');
   if (meetingMemory) meetingMemory.end().catch(() => {}); // it stays in history with its notes
   transcript.splice(0, transcript.length);
   liveTranscript.you = null;
@@ -1542,12 +1598,20 @@ ipcMain.handle('slides:clear', () => {
   send('slides:update', { count: 0, last: null });
   return { ok: true };
 });
-ipcMain.on('ask', (event, payload) => {
-  if (event.sender !== win?.webContents || !payload || typeof payload.mode !== 'string') return;
+ipcMain.handle('answer:ask', (event, payload) => {
+  if (event.sender !== win?.webContents || !payload || !Object.hasOwn(MODES, payload.mode)) return { accepted: false, message: 'Choose an answer action in Cue.' };
+  if (state.busy || quitPending) return { accepted: false, ...answerState(), message: 'Cue is still answering. Stop the current answer or wait; your draft is kept.' };
   void runFeature(payload.mode, payload.text);
+  return activeAnswer ? { accepted: true, requestId: activeAnswer.id } : { accepted: false, message: 'The question could not start. Your draft is kept.' };
 });
-ipcMain.on('mic:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('you', arrayBuffer); });
-ipcMain.on('system:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('them', arrayBuffer); });
+ipcMain.handle('answer:state', event => { requireHistory(event); return answerState(); });
+ipcMain.handle('answer:cancel', (event, requestId) => {
+  requireHistory(event);
+  if (!activeAnswer || activeAnswer.id !== requestId) return { ok: false, ...answerState() };
+  activeAnswer.cancel(); return { ok: true };
+});
+ipcMain.on('mic:pcm', (event, arrayBuffer) => { if (state.capturing && event.sender === win?.webContents) routeAudio('you', arrayBuffer); });
+ipcMain.on('system:pcm', (event, arrayBuffer) => { if (state.capturing && event.sender === win?.webContents) routeAudio('them', arrayBuffer); });
 ipcMain.on('mouse:ignore', (event, v) => {
   if (win && !win.isDestroyed() && event.sender === win.webContents && !(windowInteraction && v)) win.setIgnoreMouseEvents(!!v, { forward: true });
 });
@@ -1907,6 +1971,7 @@ app.on('before-quit', event => {
   event.preventDefault();
   if (quitPending) return;
   quitPending = true;
+  activeAnswer?.cancel('ANSWER_APP_CLOSED', 'Answer interrupted while Cue closed. Your partial answer is saved.');
   let timer;
   Promise.race([
     win.webContents.executeJavaScript('window.CueMeetingModeUI ? window.CueMeetingModeUI.flush() : true'),

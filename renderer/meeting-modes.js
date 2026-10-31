@@ -124,7 +124,7 @@
       }
       drop.disabled = importing || mode.files.length >= state.limits.files;
     }
-    function countCharacters() { $('#mode-character-count').textContent = context.value.length.toLocaleString() + ' / ' + (state?.limits.context || 32000).toLocaleString(); }
+    function countCharacters() { $('#mode-character-count').textContent = context.value.length.toLocaleString() + ' / ' + (state?.limits.context || 64000).toLocaleString() + ' characters'; }
     function fillEditor() {
       const mode = selected(); if (!mode) return;
       const draft = drafts.get(mode.id);

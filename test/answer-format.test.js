@@ -78,3 +78,10 @@ test('plain answer copy keeps text safe and never rewrites code literals', () =>
   assert.equal(toPlainText('[Documentation](https://example.com) &amp; **notes**'), 'Documentation & notes');
   assert.equal(toPlainText('```html\n<script>alert("$x$")</script>\n```'), '<script>alert("$x$")</script>');
 });
+
+test('long streaming code defers expensive highlighting while the final answer retains full formatting',()=>{
+ const code='```python\n'+('def solve(value):\n    return value + 1\n'.repeat(250))+'```';
+ const live=render(code,{streaming:true}),final=render(code);
+ assert.match(live,/language-python/);assert.doesNotMatch(live,/hljs-keyword/);assert.match(final,/hljs-keyword/);
+ assert.equal(toPlainText(code).split('def solve').length,251);
+});
