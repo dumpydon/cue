@@ -12,95 +12,16 @@
       "bytes": 141995555,
       "sha256": "52446db27dc08fae74304f1a66e830c01b524f096d68601522b12524829fca2f",
       "url": "/get/mac/arm64",
-      "host": "worker-preview",
-      "releaseUrl": "https://github.com/dumpydon/cue/releases/download/v0.4.17-preview.1/cue-0.4.17-preview-mac-arm64.zip",
-      "parts": [
-        {
-          "path": "/downloads/parts/0.4.17/arm64/part-001.bin",
-          "bytes": 20971520,
-          "sha256": "a79e82fba0c8570a329c0df531ab1a1edabeeb912b3c6e174872b842bc16a412"
-        },
-        {
-          "path": "/downloads/parts/0.4.17/arm64/part-002.bin",
-          "bytes": 20971520,
-          "sha256": "a2aec06af8e557d0f07dcdcfb2924bb507a0d60e9c2e3152ebb1c45a0598605e"
-        },
-        {
-          "path": "/downloads/parts/0.4.17/arm64/part-003.bin",
-          "bytes": 20971520,
-          "sha256": "feddf30af1b20d59ceed84514c733fc955ac5bd366c7589161c95c93c91f7ff1"
-        },
-        {
-          "path": "/downloads/parts/0.4.17/arm64/part-004.bin",
-          "bytes": 20971520,
-          "sha256": "0a780d6f6e02c4321ca2cf0c92efbd39b0e0a193481489684e552b918196ee22"
-        },
-        {
-          "path": "/downloads/parts/0.4.17/arm64/part-005.bin",
-          "bytes": 20971520,
-          "sha256": "6cb1c3a2864ef92634ab084f471f1d2ecd255dfab0c57849ffd94a861c7437e4"
-        },
-        {
-          "path": "/downloads/parts/0.4.17/arm64/part-006.bin",
-          "bytes": 20971520,
-          "sha256": "e7d2d99115a6ddef879c3f9a192ff88bf0b0fd4ca09bc7f3ec98f239bba18d9e"
-        },
-        {
-          "path": "/downloads/parts/0.4.17/arm64/part-007.bin",
-          "bytes": 16166435,
-          "sha256": "1c69f89efaf19867c29b6a382a0b4b307173393d6f55913153d0980c790921e4"
-        }
-      ]
+      "host": "github",
+      "releaseUrl": "https://github.com/dumpydon/cue/releases/download/v0.4.17-preview.1/cue-0.4.17-preview-mac-arm64.zip"
     },
     "x64": {
       "filename": "cue-0.4.17-preview-mac-x64.zip",
       "bytes": 148720075,
       "sha256": "cadec7075f9adae849375c7c6fc56c133cd1cb7d764c87c61e7e2a4f0eb88240",
       "url": "/get/mac/x64",
-      "host": "worker-preview",
-      "releaseUrl": "https://github.com/dumpydon/cue/releases/download/v0.4.17-preview.1/cue-0.4.17-preview-mac-x64.zip",
-      "parts": [
-        {
-          "path": "/downloads/parts/0.4.17/x64/part-001.bin",
-          "bytes": 20971520,
-          "sha256": "3cae2202302eadd4c6e921a8f7a5ff08896d35da12d6a9ffc18766a2ff64a518"
-        },
-        {
-          "path": "/downloads/parts/0.4.17/x64/part-002.bin",
-          "bytes": 20971520,
-          "sha256": "3371a3ed95ceb0085f59a9fd6369f1de3a2cd138dfe57da2283b0ec13b447350"
-        },
-        {
-          "path": "/downloads/parts/0.4.17/x64/part-003.bin",
-          "bytes": 20971520,
-          "sha256": "d7c0328797e6f68cd84d854e221862595a5e7e36f6959c3e14074ccdf6b5c555"
-        },
-        {
-          "path": "/downloads/parts/0.4.17/x64/part-004.bin",
-          "bytes": 20971520,
-          "sha256": "3e158668a26625430e5ab2fcbb54fcbca8bb357d4fb1eac0c0529eb5984f5acf"
-        },
-        {
-          "path": "/downloads/parts/0.4.17/x64/part-005.bin",
-          "bytes": 20971520,
-          "sha256": "2b7114446322c1b2502567c5a3cc93659df1921cec545d64433843c04c2e860e"
-        },
-        {
-          "path": "/downloads/parts/0.4.17/x64/part-006.bin",
-          "bytes": 20971520,
-          "sha256": "a9c590a33898b35f17bcf778c6e14601c36643657d297e3099d4d3ba534d51bc"
-        },
-        {
-          "path": "/downloads/parts/0.4.17/x64/part-007.bin",
-          "bytes": 20971520,
-          "sha256": "c2cc4d61fa04f3aaf4f4311095475685f8efbcc167a3eda24b43dc8fdd77c10a"
-        },
-        {
-          "path": "/downloads/parts/0.4.17/x64/part-008.bin",
-          "bytes": 1919435,
-          "sha256": "b8bbc39da446a7617372d9845a635ba800ff6e9047e75ab013bc5b02ed197317"
-        }
-      ]
+      "host": "github",
+      "releaseUrl": "https://github.com/dumpydon/cue/releases/download/v0.4.17-preview.1/cue-0.4.17-preview-mac-x64.zip"
     }
   },
   "notarized": false,
